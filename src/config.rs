@@ -56,11 +56,14 @@ impl Default for SimConfig {
                 max_speed: 8.0,
                 min_speed: 3.0,
                 max_force: 12.0,
-                perception: 4.5,
+                // Wide perception so the scattered minority can find each other
+                // and gather into a single tight bait ball.
+                perception: 22.0,
                 separation_dist: 1.6,
                 separation_weight: 1.8,
-                alignment_weight: 1.0,
-                cohesion_weight: 0.9,
+                alignment_weight: 1.2,
+                // Strong cohesion keeps the school balled up under attack.
+                cohesion_weight: 1.8,
             },
             tuna: BoidParams {
                 // Clearly faster than squid (8.0) so a charge runs them down.
@@ -80,7 +83,9 @@ impl Default for SimConfig {
             },
 
             flee_radius: 8.5,
-            flee_weight: 3.5,
+            // Moderate flee so cohesion wins: the whole ball edges away from a
+            // charge together instead of exploding apart.
+            flee_weight: 2.6,
             // Commit to a bait ball from far away and chase it hard.
             hunt_radius: 24.0,
             hunt_weight: 2.6,
