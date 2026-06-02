@@ -101,42 +101,50 @@ pub fn flocking_system(
             }
         }
 
+        // Tuna sprint when a bait ball is in range, so they can run down the
+        // slower, fleeing squid and actually break into the school.
+        let max_speed = if species == Species::Tuna && prey_count > 0 {
+            p.max_speed * cfg.hunt_speed_boost
+        } else {
+            p.max_speed
+        };
+
         let mut accel = Vec3::ZERO;
 
         if neighbours > 0 {
             let inv = 1.0 / neighbours as f32;
-            let cohesion = steer_towards(center_sum * inv - pos, vel, p.max_speed, p.max_force);
-            let alignment = steer_towards(align_sum * inv, vel, p.max_speed, p.max_force);
+            let cohesion = steer_towards(center_sum * inv - pos, vel, max_speed, p.max_force);
+            let alignment = steer_towards(align_sum * inv, vel, max_speed, p.max_force);
             accel += cohesion * p.cohesion_weight;
             accel += alignment * p.alignment_weight;
         }
         if separation != Vec3::ZERO {
-            accel += steer_towards(separation, vel, p.max_speed, p.max_force) * p.separation_weight;
+            accel += steer_towards(separation, vel, max_speed, p.max_force) * p.separation_weight;
         }
 
         match species {
             Species::Squid => {
                 if flee != Vec3::ZERO {
-                    accel += steer_towards(flee, vel, p.max_speed, p.max_force) * cfg.flee_weight;
+                    accel += steer_towards(flee, vel, max_speed, p.max_force) * cfg.flee_weight;
                 }
             }
             Species::Tuna => {
                 if prey_count > 0 {
                     let target = prey_center_sum / prey_count as f32;
                     accel +=
-                        steer_towards(target - pos, vel, p.max_speed, p.max_force) * cfg.hunt_weight;
+                        steer_towards(target - pos, vel, max_speed, p.max_force) * cfg.hunt_weight;
                 }
             }
         }
 
         // Steer back inside the tank before hitting a wall.
-        accel += boundary_force(pos, vel, &cfg, p);
+        accel += boundary_force(pos, vel, &cfg, max_speed, p.max_force);
 
         // Integrate and clamp to the species' speed envelope.
         let mut new_vel = vel + accel * dt;
         let speed = new_vel.length();
-        if speed > p.max_speed {
-            new_vel = new_vel / speed * p.max_speed;
+        if speed > max_speed {
+            new_vel = new_vel / speed * max_speed;
         } else if speed < p.min_speed {
             new_vel = if speed > 1e-4 {
                 new_vel / speed * p.min_speed
@@ -149,12 +157,7 @@ pub fn flocking_system(
 }
 
 /// A restoring force that grows as a boid approaches a wall of the tank.
-fn boundary_force(
-    pos: Vec3,
-    vel: Vec3,
-    cfg: &SimConfig,
-    p: &crate::config::BoidParams,
-) -> Vec3 {
+fn boundary_force(pos: Vec3, vel: Vec3, cfg: &SimConfig, max_speed: f32, max_force: f32) -> Vec3 {
     let mut dir = Vec3::ZERO;
     let m = cfg.boundary_margin;
     let b = cfg.bounds;
@@ -172,7 +175,7 @@ fn boundary_force(
     if dir == Vec3::ZERO {
         Vec3::ZERO
     } else {
-        steer_towards(dir, vel, p.max_speed, p.max_force) * cfg.boundary_weight
+        steer_towards(dir, vel, max_speed, max_force) * cfg.boundary_weight
     }
 }
 
