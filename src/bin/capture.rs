@@ -8,10 +8,11 @@ use std::time::Duration;
 
 use bevy::app::{AppExit, ScheduleRunnerPlugin};
 use bevy::asset::RenderAssetUsages;
+use bevy::camera::RenderTarget;
 use bevy::prelude::*;
-use bevy::render::camera::RenderTarget;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages};
 use bevy::render::view::screenshot::{save_to_disk, Screenshot};
+use bevy::render::view::Hdr;
 use bevy::window::ExitCondition;
 use bevy::winit::WinitPlugin;
 
@@ -54,13 +55,14 @@ fn main() {
                     primary_window: None,
                     exit_condition: ExitCondition::DontExit,
                     close_when_requested: false,
+                    ..default()
                 }),
         )
         .add_plugins(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(
             1.0 / 30.0,
         )))
         .insert_resource(ClearColor(Color::srgb(0.05, 0.22, 0.34)))
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             color: Color::srgb(0.5, 0.7, 1.0),
             brightness: 220.0,
             ..default()
@@ -124,11 +126,8 @@ fn setup_capture_camera(mut commands: Commands, mut images: ResMut<Assets<Image>
 
     commands.spawn((
         Camera3d::default(),
-        Camera {
-            target: RenderTarget::Image(handle.clone().into()),
-            hdr: true,
-            ..default()
-        },
+        RenderTarget::Image(handle.clone().into()),
+        Hdr,
         beam_bloom(),
         Transform::from_xyz(0.0, 25.0, 72.0).looking_at(Vec3::ZERO, Vec3::Y),
         water_fog(),
@@ -142,7 +141,7 @@ fn capture_system(
     mut commands: Commands,
     mut cap: ResMut<Capture>,
     image: Res<RenderImage>,
-    mut exit: EventWriter<AppExit>,
+    mut exit: MessageWriter<AppExit>,
 ) {
     let f = cap.frame;
     cap.frame += 1;

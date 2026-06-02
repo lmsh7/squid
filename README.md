@@ -47,7 +47,7 @@ bulk drift, and the drifting particles). Tweak and re-run to change the dynamics
 
 ## The water body
 
-The water is a lightweight, dependency-free effect built on what Bevy 0.16
+The water is a lightweight, dependency-free effect built on what Bevy 0.18
 already ships, so it also runs under the headless software renderer:
 
 - **Current** — an analytic velocity field (a slow bulk drift plus a few
@@ -64,7 +64,7 @@ already ships, so it also runs under the headless software renderer:
 - **Sunlight** — a `VolumetricLight` "sun" scatters through a `FogVolume` filling
   the tank, so light glows softly down through the water and the schools are lit
   from above. The cameras render in HDR with bloom so the lit water and fish
-  glow. (Bevy 0.16 only scatters *directional* lights volumetrically, so this is
+  glow. (Bevy 0.18 only scatters *directional* lights volumetrically, so this is
   a soft sun glow rather than hard, occluder-carved god-ray shafts.)
 
 ## Running
@@ -79,7 +79,7 @@ On Linux you'll need the usual Bevy build dependencies (ALSA + udev), e.g. on
 Debian/Ubuntu:
 
 ```bash
-sudo apt-get install -y libasound2-dev libudev-dev pkg-config
+sudo apt-get install -y libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev pkg-config
 ```
 
 ## Controls

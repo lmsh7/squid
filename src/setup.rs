@@ -2,11 +2,11 @@
 
 use std::f32::consts::FRAC_PI_2;
 
-use bevy::core_pipeline::bloom::{Bloom, BloomCompositeMode, BloomPrefilter};
-use bevy::pbr::{
-    DistanceFog, FogFalloff, FogVolume, NotShadowCaster, VolumetricFog, VolumetricLight,
-};
+use bevy::light::{FogVolume, NotShadowCaster, VolumetricFog, VolumetricLight};
+use bevy::pbr::{DistanceFog, FogFalloff};
+use bevy::post_process::bloom::{Bloom, BloomCompositeMode, BloomPrefilter};
 use bevy::prelude::*;
+use bevy::render::view::Hdr;
 use rand::Rng;
 
 use crate::components::{Species, Squid, StatsText, Tuna, Velocity};
@@ -73,10 +73,7 @@ pub fn spawn_window_camera(mut commands: Commands) {
         Camera3d::default(),
         // HDR + bloom let the bright volumetric beams glow and bleed, which is
         // what makes them read as shafts of light rather than flat haze.
-        Camera {
-            hdr: true,
-            ..default()
-        },
+        Hdr,
         beam_bloom(),
         Transform::from_xyz(0.0, 25.0, 72.0).looking_at(Vec3::ZERO, Vec3::Y),
         water_fog(),
@@ -95,7 +92,7 @@ pub fn setup_scene(
     // --- Lighting -------------------------------------------------------
     // The "sun": a directional light slanting down into the tank. `VolumetricLight`
     // makes it scatter through the water (see the fog volume below) into a soft
-    // glow of sunlight. (Bevy 0.16 only scatters directional lights volumetrically.)
+    // glow of sunlight. (Bevy 0.18 only scatters directional lights volumetrically.)
     commands.spawn((
         DirectionalLight {
             // Bright, sun-like: volumetric in-scattering scales with the light's
