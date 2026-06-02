@@ -8,7 +8,7 @@ use crate::config::{Score, SimConfig};
 
 /// Draw the edges of the tank every frame using gizmos.
 pub fn draw_bounds(mut gizmos: Gizmos, cfg: Res<SimConfig>) {
-    gizmos.cuboid(
+    gizmos.cube(
         Transform::from_scale(cfg.bounds * 2.0),
         Color::srgba(0.3, 0.6, 0.9, 0.4),
     );

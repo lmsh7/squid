@@ -6,6 +6,7 @@ use rand::Rng;
 
 use crate::components::{Species, Squid, Tuna, Velocity};
 use crate::config::{Score, SimConfig};
+use crate::water::current_at;
 
 /// A lightweight, immutable snapshot of every boid for the current frame, so
 /// the O(n^2) neighbour scan doesn't fight the borrow checker.
@@ -56,6 +57,7 @@ pub fn flocking_system(
     mut query: Query<(Entity, &Species, &Transform, &mut Velocity)>,
 ) {
     let dt = time.delta_secs();
+    let t = time.elapsed_secs();
 
     let agents: Vec<Agent> = query
         .iter()
@@ -160,8 +162,15 @@ pub fn flocking_system(
             }
         }
 
-        // Steer back inside the tank before hitting a wall.
-        accel += boundary_force(pos, vel, &cfg, max_speed, p.max_force);
+        // Soft boundary steering disabled — containment is left to the hard
+        // position clamp in `movement_system`.
+        // accel += boundary_force(pos, vel, &cfg, max_speed, p.max_force);
+
+        // The surrounding water pushes the boid along the local current, so the
+        // whole school drifts and curls with the flow. Treated as an external
+        // force, so it's still bounded by the speed clamp and turn-rate limit
+        // applied below.
+        accel += current_at(pos, t, &cfg.water) * cfg.water.current_push;
 
         // Integrate and clamp to the species' speed envelope.
         let mut new_vel = vel + accel * dt;
@@ -186,6 +195,8 @@ pub fn flocking_system(
 }
 
 /// A restoring force that grows as a boid approaches a wall of the tank.
+/// (Currently unused — see `flocking_system`; kept for easy re-enabling.)
+#[allow(dead_code)]
 fn boundary_force(pos: Vec3, vel: Vec3, cfg: &SimConfig, max_speed: f32, max_force: f32) -> Vec3 {
     let mut dir = Vec3::ZERO;
     let m = cfg.boundary_margin;
@@ -209,11 +220,31 @@ fn boundary_force(pos: Vec3, vel: Vec3, cfg: &SimConfig, max_speed: f32, max_for
 }
 
 /// Move every boid along its velocity and smoothly turn it to face the way it
-/// is heading.
-pub fn movement_system(time: Res<Time>, mut query: Query<(&Velocity, &mut Transform)>) {
+/// is heading. A hard clamp to the tank is the sole containment now (the soft
+/// boundary steering is disabled): fish swim up to a wall and slide along it.
+pub fn movement_system(
+    time: Res<Time>,
+    cfg: Res<SimConfig>,
+    mut query: Query<(&mut Velocity, &mut Transform)>,
+) {
     let dt = time.delta_secs();
-    for (velocity, mut transform) in query.iter_mut() {
+    let b = cfg.bounds;
+    for (mut velocity, mut transform) in query.iter_mut() {
         transform.translation += velocity.0 * dt;
+
+        // Keep every fish inside the tank: clamp the position to the walls and
+        // cancel any outward velocity so it slides along the wall instead of
+        // punching through it.
+        for axis in 0..3 {
+            if transform.translation[axis] > b[axis] {
+                transform.translation[axis] = b[axis];
+                velocity.0[axis] = velocity.0[axis].min(0.0);
+            } else if transform.translation[axis] < -b[axis] {
+                transform.translation[axis] = -b[axis];
+                velocity.0[axis] = velocity.0[axis].max(0.0);
+            }
+        }
+
         if velocity.0.length_squared() > 1e-4 {
             let mut target = *transform;
             target.look_to(velocity.0.normalize(), Vec3::Y);

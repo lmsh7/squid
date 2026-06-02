@@ -7,3 +7,4 @@ pub mod config;
 pub mod flocking;
 pub mod setup;
 pub mod ui;
+pub mod water;

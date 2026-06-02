@@ -9,7 +9,13 @@ project and reimagined in three dimensions with a predator/prey twist.
 > The preview above is rendered by the app itself running **headless** on
 > software Vulkan (lavapipe) — see [Rendering a preview](#rendering-a-preview).
 
-Two schools share a tank:
+Two schools share a tank filled with **moving water**: a swirling current drags
+the schools around and stirs them into eddies, drifting "marine snow" particles
+sink through the volume, distance fog fades far-off fish into clear blue depth,
+and **sunlight scatters down** through the water from above — so the tank reads
+as a body of clear blue water, not empty space.
+
+Two schools share that tank:
 
 - **🦑 Squid (prey)** — flock tightly using classic Reynolds rules and **ball up**
   into a tight bait ball, then **flee** as one unit when tuna close in. They are
@@ -32,10 +38,34 @@ plus an inter-species interaction and a soft tank boundary:
 | **Cohesion** | Steer toward the average position of nearby neighbours. |
 | **Flee / Hunt** | Squid steer away from nearby tuna; tuna steer toward the closest squid. |
 | **Boundary** | A restoring force keeps each fish inside the tank. |
+| **Current** | The surrounding water pushes each fish along the local flow, so the whole school drifts and curls with the eddies. |
 
 All tuning lives in [`src/config.rs`](src/config.rs) (`SimConfig`): tank size,
-school sizes, per-species speeds and forces, perception radii, and the
-flee/hunt/eat distances. Tweak and re-run to change the dynamics.
+school sizes, per-species speeds and forces, perception radii, the
+flee/hunt/eat distances, and the water (`WaterParams`: current strength/scale,
+bulk drift, and the drifting particles). Tweak and re-run to change the dynamics.
+
+## The water body
+
+The water is a lightweight, dependency-free effect built on what Bevy 0.18
+already ships, so it also runs under the headless software renderer:
+
+- **Current** — an analytic velocity field (a slow bulk drift plus a few
+  out-of-phase, slowly animating sinusoidal swirls) sampled per fish in
+  [`src/water.rs`](src/water.rs). It's added to each boid as an external force,
+  so it's still bounded by the species' speed envelope and turning radius.
+- **Marine snow** — a few hundred faint particles that the current advects and
+  that slowly sink, wrapping back in from the top so the volume stays populated.
+- **Clear water** — a faint translucent blue box, exactly the size of the
+  wireframe tank, gives the water a clear, see-through body that fills the tank
+  right to its edges.
+- **Distance fog** — an exponential `DistanceFog` on the camera tints and fades
+  distant fish into the water colour.
+- **Sunlight** — a `VolumetricLight` "sun" scatters through a `FogVolume` filling
+  the tank, so light glows softly down through the water and the schools are lit
+  from above. The cameras render in HDR with bloom so the lit water and fish
+  glow. (Bevy 0.18 only scatters *directional* lights volumetrically, so this is
+  a soft sun glow rather than hard, occluder-carved god-ray shafts.)
 
 ## Running
 
@@ -49,7 +79,7 @@ On Linux you'll need the usual Bevy build dependencies (ALSA + udev), e.g. on
 Debian/Ubuntu:
 
 ```bash
-sudo apt-get install -y libasound2-dev libudev-dev pkg-config
+sudo apt-get install -y libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev pkg-config
 ```
 
 ## Controls
@@ -71,6 +101,7 @@ sudo apt-get install -y libasound2-dev libudev-dev pkg-config
 | `src/config.rs` | `SimConfig` tuning resource and the `Score` tally. |
 | `src/setup.rs` | Spawns the lights, tank, and both schools. |
 | `src/flocking.rs` | The boids rules, movement, and the hunting/eating logic. |
+| `src/water.rs` | The water current field plus the drifting "marine snow" particles. |
 | `src/camera.rs` | Orbit camera state and input. |
 | `src/ui.rs` | Heads-up display and the wireframe tank boundary. |
 
