@@ -162,8 +162,9 @@ pub fn flocking_system(
             }
         }
 
-        // Steer back inside the tank before hitting a wall.
-        accel += boundary_force(pos, vel, &cfg, max_speed, p.max_force);
+        // Soft boundary steering disabled — containment is left to the hard
+        // position clamp in `movement_system`.
+        // accel += boundary_force(pos, vel, &cfg, max_speed, p.max_force);
 
         // The surrounding water pushes the boid along the local current, so the
         // whole school drifts and curls with the flow. Treated as an external
@@ -194,6 +195,8 @@ pub fn flocking_system(
 }
 
 /// A restoring force that grows as a boid approaches a wall of the tank.
+/// (Currently unused — see `flocking_system`; kept for easy re-enabling.)
+#[allow(dead_code)]
 fn boundary_force(pos: Vec3, vel: Vec3, cfg: &SimConfig, max_speed: f32, max_force: f32) -> Vec3 {
     let mut dir = Vec3::ZERO;
     let m = cfg.boundary_margin;
