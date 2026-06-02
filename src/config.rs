@@ -21,6 +21,32 @@ pub struct BoidParams {
     pub max_turn_rate: f32,
 }
 
+/// Tuning for the water body: a swirling current field that pushes the boids
+/// around, plus the drifting "marine snow" particles that make the volume read
+/// as water.
+#[derive(Clone)]
+pub struct WaterParams {
+    /// Constant bulk flow of the whole tank, in units per second.
+    pub drift: Vec3,
+    /// Peak speed of the swirling component of the current, in units/second.
+    pub current_strength: f32,
+    /// Spatial frequency of the swirls: larger = tighter, smaller = broader
+    /// eddies (the field is sampled at `pos * current_scale`).
+    pub current_scale: f32,
+    /// How fast the current field animates over time.
+    pub current_time_scale: f32,
+    /// How strongly the current accelerates a boid (an external steering force,
+    /// clamped like the others by each species' turn rate and speed envelope).
+    pub current_push: f32,
+
+    /// How many drifting particles fill the tank.
+    pub particle_count: usize,
+    /// Baseline sink speed of a particle, in units/second.
+    pub particle_fall_speed: f32,
+    /// Radius of a single particle sphere.
+    pub particle_size: f32,
+}
+
 /// Global simulation configuration.
 #[derive(Resource, Clone)]
 pub struct SimConfig {
@@ -31,6 +57,9 @@ pub struct SimConfig {
 
     pub squid: BoidParams,
     pub tuna: BoidParams,
+
+    /// The surrounding water: current field and drifting particles.
+    pub water: WaterParams,
 
     /// Squid sense and flee from tuna within this radius.
     pub flee_radius: f32,
@@ -88,6 +117,24 @@ impl Default for SimConfig {
                 // Big and fast: a wide turning radius, so a charge overshoots
                 // the bait ball and sweeps around for another pass.
                 max_turn_rate: 1.2,
+            },
+
+            water: WaterParams {
+                // Only a whisper of net drift: enough to bias the flow without
+                // convecting every fish into a downstream corner. The roaming
+                // comes from the swirls below, whose spatial average is ~zero.
+                drift: Vec3::new(0.15, 0.0, 0.08),
+                // Swirls are a soft nudge next to the 3–14 unit/s swim speeds,
+                // enough to bend the schools without overpowering the boids.
+                current_strength: 1.5,
+                // Broad eddies a few body-lengths across.
+                current_scale: 0.06,
+                current_time_scale: 0.35,
+                current_push: 1.2,
+
+                particle_count: 260,
+                particle_fall_speed: 0.7,
+                particle_size: 0.05,
             },
 
             flee_radius: 8.5,

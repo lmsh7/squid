@@ -6,6 +6,7 @@ use rand::Rng;
 
 use crate::components::{Species, Squid, Tuna, Velocity};
 use crate::config::{Score, SimConfig};
+use crate::water::current_at;
 
 /// A lightweight, immutable snapshot of every boid for the current frame, so
 /// the O(n^2) neighbour scan doesn't fight the borrow checker.
@@ -56,6 +57,7 @@ pub fn flocking_system(
     mut query: Query<(Entity, &Species, &Transform, &mut Velocity)>,
 ) {
     let dt = time.delta_secs();
+    let t = time.elapsed_secs();
 
     let agents: Vec<Agent> = query
         .iter()
@@ -162,6 +164,12 @@ pub fn flocking_system(
 
         // Steer back inside the tank before hitting a wall.
         accel += boundary_force(pos, vel, &cfg, max_speed, p.max_force);
+
+        // The surrounding water pushes the boid along the local current, so the
+        // whole school drifts and curls with the flow. Treated as an external
+        // force, so it's still bounded by the speed clamp and turn-rate limit
+        // applied below.
+        accel += current_at(pos, t, &cfg.water) * cfg.water.current_push;
 
         // Integrate and clamp to the species' speed envelope.
         let mut new_vel = vel + accel * dt;

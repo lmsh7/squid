@@ -2,6 +2,7 @@
 
 use std::f32::consts::FRAC_PI_2;
 
+use bevy::pbr::{DistanceFog, FogFalloff};
 use bevy::prelude::*;
 use rand::Rng;
 
@@ -21,12 +22,26 @@ struct CreatureAssets {
     eye_mat: Handle<StandardMaterial>,
 }
 
+/// Underwater distance fog: distant fish dissolve into the surrounding water
+/// colour, selling the sense of a murky, light-absorbing volume. Shared by the
+/// windowed and headless cameras so both look the same.
+pub fn water_fog() -> DistanceFog {
+    DistanceFog {
+        color: Color::srgb(0.02, 0.08, 0.16),
+        // Tuned for the tank scale: noticeable past a few body-lengths, heavy
+        // toward the far wall, without hiding the nearby action.
+        falloff: FogFalloff::ExponentialSquared { density: 0.013 },
+        ..default()
+    }
+}
+
 /// Spawn the windowed gameplay camera. (The headless capture binary spawns its
 /// own camera that renders to an offscreen image instead.)
 pub fn spawn_window_camera(mut commands: Commands) {
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.0, 25.0, 72.0).looking_at(Vec3::ZERO, Vec3::Y),
+        water_fog(),
     ));
 }
 

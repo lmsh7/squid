@@ -18,8 +18,9 @@ use bevy::winit::WinitPlugin;
 use squid::camera::{camera_apply, camera_input, OrbitCamera};
 use squid::config::{Score, SimConfig};
 use squid::flocking::{flocking_system, hunting_system, movement_system};
-use squid::setup::setup_scene;
+use squid::setup::{setup_scene, water_fog};
 use squid::ui::{draw_bounds, update_stats};
+use squid::water::{drift_particles, spawn_water_particles};
 
 const WIDTH: u32 = 960;
 const HEIGHT: u32 = 540;
@@ -73,12 +74,16 @@ fn main() {
             frames,
             out_dir,
         })
-        .add_systems(Startup, (setup_capture_camera, setup_scene))
+        .add_systems(
+            Startup,
+            (setup_capture_camera, setup_scene, spawn_water_particles),
+        )
         .add_systems(
             Update,
             (
                 flocking_system,
                 movement_system,
+                drift_particles,
                 hunting_system,
                 camera_input,
                 camera_apply,
@@ -124,6 +129,7 @@ fn setup_capture_camera(mut commands: Commands, mut images: ResMut<Assets<Image>
             ..default()
         },
         Transform::from_xyz(0.0, 25.0, 72.0).looking_at(Vec3::ZERO, Vec3::Y),
+        water_fog(),
     ));
 
     commands.insert_resource(RenderImage(handle));
