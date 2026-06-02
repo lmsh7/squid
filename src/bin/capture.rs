@@ -59,7 +59,7 @@ fn main() {
         .add_plugins(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(
             1.0 / 30.0,
         )))
-        .insert_resource(ClearColor(Color::srgb(0.02, 0.05, 0.12)))
+        .insert_resource(ClearColor(Color::srgb(0.05, 0.22, 0.34)))
         .insert_resource(AmbientLight {
             color: Color::srgb(0.5, 0.7, 1.0),
             brightness: 220.0,

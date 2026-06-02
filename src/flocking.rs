@@ -217,11 +217,31 @@ fn boundary_force(pos: Vec3, vel: Vec3, cfg: &SimConfig, max_speed: f32, max_for
 }
 
 /// Move every boid along its velocity and smoothly turn it to face the way it
-/// is heading.
-pub fn movement_system(time: Res<Time>, mut query: Query<(&Velocity, &mut Transform)>) {
+/// is heading. A hard clamp to the tank backstops the soft boundary force,
+/// since a fast, wide-turning tuna can overshoot a wall before it can turn.
+pub fn movement_system(
+    time: Res<Time>,
+    cfg: Res<SimConfig>,
+    mut query: Query<(&mut Velocity, &mut Transform)>,
+) {
     let dt = time.delta_secs();
-    for (velocity, mut transform) in query.iter_mut() {
+    let b = cfg.bounds;
+    for (mut velocity, mut transform) in query.iter_mut() {
         transform.translation += velocity.0 * dt;
+
+        // Keep every fish inside the tank: clamp the position to the walls and
+        // cancel any outward velocity so it slides along the wall instead of
+        // punching through it.
+        for axis in 0..3 {
+            if transform.translation[axis] > b[axis] {
+                transform.translation[axis] = b[axis];
+                velocity.0[axis] = velocity.0[axis].min(0.0);
+            } else if transform.translation[axis] < -b[axis] {
+                transform.translation[axis] = -b[axis];
+                velocity.0[axis] = velocity.0[axis].max(0.0);
+            }
+        }
+
         if velocity.0.length_squared() > 1e-4 {
             let mut target = *transform;
             target.look_to(velocity.0.normalize(), Vec3::Y);

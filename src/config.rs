@@ -148,8 +148,10 @@ impl Default for SimConfig {
             hunt_speed_boost: 1.4,
             eat_radius: 1.4,
 
-            boundary_margin: 4.0,
-            boundary_weight: 4.0,
+            // Start steering back early: the fast, wide-turning tuna need a lot
+            // of room to bank away from a wall before they reach it.
+            boundary_margin: 7.0,
+            boundary_weight: 5.0,
         }
     }
 }

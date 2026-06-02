@@ -11,9 +11,9 @@ project and reimagined in three dimensions with a predator/prey twist.
 
 Two schools share a tank filled with **moving water**: a swirling current drags
 the schools around and stirs them into eddies, drifting "marine snow" particles
-sink through the volume, distance fog dissolves far-off fish into the murky blue,
+sink through the volume, distance fog fades far-off fish into clear blue depth,
 and **sunlight scatters down** through the water from above — so the tank reads
-as a body of water, not empty space.
+as a body of clear blue water, not empty space.
 
 Two schools share that tank:
 

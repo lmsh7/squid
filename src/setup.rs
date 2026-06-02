@@ -28,10 +28,12 @@ struct CreatureAssets {
 /// windowed and headless cameras so both look the same.
 pub fn water_fog() -> DistanceFog {
     DistanceFog {
-        color: Color::srgb(0.02, 0.08, 0.16),
-        // Tuned for the tank scale: noticeable past a few body-lengths, heavy
-        // toward the far wall, without hiding the nearby action.
-        falloff: FogFalloff::ExponentialSquared { density: 0.013 },
+        // Matches the clear-water background, so distance reads as translucent
+        // blue depth (atmospheric perspective) rather than a murky black void.
+        color: Color::srgb(0.05, 0.22, 0.34),
+        // Gentle enough that the near water stays clear and see-through, with
+        // the far wall fading into blue.
+        falloff: FogFalloff::ExponentialSquared { density: 0.011 },
         ..default()
     }
 }
@@ -119,14 +121,17 @@ pub fn setup_scene(
     // scatters through it into a soft volumetric glow of sunlight.
     commands.spawn((
         FogVolume {
-            fog_color: Color::srgb(0.06, 0.30, 0.55),
-            density_factor: 0.3,
-            scattering: 0.9,
-            absorption: 0.15,
+            fog_color: Color::srgb(0.12, 0.38, 0.58),
+            // Thin and barely-absorbing, so the water stays clear and
+            // see-through (通透): you look right through it to the blue beyond,
+            // with only a faint sunlit glow added rather than a darkening murk.
+            density_factor: 0.09,
+            scattering: 0.5,
+            absorption: 0.03,
             // Forward scattering concentrates a soft halo of glow toward the sun
             // direction, reading as sunlight pouring down through the water.
             scattering_asymmetry: 0.6,
-            light_intensity: 14.0,
+            light_intensity: 30.0,
             light_tint: Color::srgb(0.8, 0.9, 1.0),
             ..default()
         },
