@@ -1,0 +1,21 @@
+[package]
+name = "squid"
+version = "0.1.0"
+edition = "2021"
+description = "A 3D boids simulation in Bevy: tuna schools hunting squid schools"
+license = "MIT"
+
+[dependencies]
+bevy = "0.16"
+rand = "0.8"
+
+# Speed up dev builds while keeping dependencies optimized.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
