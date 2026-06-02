@@ -49,8 +49,8 @@ impl Default for SimConfig {
     fn default() -> Self {
         Self {
             bounds: Vec3::new(28.0, 16.0, 28.0),
-            squid_count: 220,
-            tuna_count: 14,
+            squid_count: 40,
+            tuna_count: 140,
 
             squid: BoidParams {
                 max_speed: 8.0,
