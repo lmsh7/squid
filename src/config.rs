@@ -69,11 +69,14 @@ impl Default for SimConfig {
                 max_force: 12.0,
                 // See far and across the whole pack so the school stays unified.
                 perception: 12.0,
-                separation_dist: 2.0,
-                separation_weight: 1.3,
-                // Strong alignment + cohesion makes the tuna charge as one pack.
+                // Wide personal space so the pack spreads into a loose, open
+                // formation instead of collapsing into one dense ball.
+                separation_dist: 5.0,
+                separation_weight: 2.2,
+                // Strong alignment keeps them moving as one school; gentle
+                // cohesion holds the formation together without crowding.
                 alignment_weight: 2.0,
-                cohesion_weight: 1.4,
+                cohesion_weight: 0.9,
             },
 
             flee_radius: 8.5,
