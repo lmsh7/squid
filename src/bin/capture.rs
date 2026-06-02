@@ -16,6 +16,7 @@ use bevy::render::view::Hdr;
 use bevy::window::ExitCondition;
 use bevy::winit::WinitPlugin;
 
+use squid::animation::animate_fish;
 use squid::camera::{camera_apply, camera_input, OrbitCamera};
 use squid::config::{Score, SimConfig};
 use squid::flocking::{flocking_system, hunting_system, movement_system};
@@ -85,6 +86,7 @@ fn main() {
             (
                 flocking_system,
                 movement_system,
+                animate_fish,
                 drift_particles,
                 hunting_system,
                 camera_input,
