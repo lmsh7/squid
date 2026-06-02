@@ -3,7 +3,9 @@
 use std::f32::consts::FRAC_PI_2;
 
 use bevy::core_pipeline::bloom::{Bloom, BloomCompositeMode, BloomPrefilter};
-use bevy::pbr::{DistanceFog, FogFalloff, FogVolume, VolumetricFog, VolumetricLight};
+use bevy::pbr::{
+    DistanceFog, FogFalloff, FogVolume, NotShadowCaster, VolumetricFog, VolumetricLight,
+};
 use bevy::prelude::*;
 use rand::Rng;
 
@@ -122,9 +124,9 @@ pub fn setup_scene(
     commands.spawn((
         FogVolume {
             fog_color: Color::srgb(0.12, 0.38, 0.58),
-            // Thin and barely-absorbing, so the water stays clear and
-            // see-through (通透): you look right through it to the blue beyond,
-            // with only a faint sunlit glow added rather than a darkening murk.
+            // Thin and barely-absorbing: this only adds the soft sunlit glow
+            // inside the water. The translucent box below is what gives the
+            // water its clear blue body and crisp edges at the wireframe.
             density_factor: 0.09,
             scattering: 0.5,
             absorption: 0.03,
@@ -136,6 +138,22 @@ pub fn setup_scene(
             ..default()
         },
         Transform::from_scale(cfg.bounds * 2.0),
+    ));
+
+    // A faint translucent blue box, exactly the size of the wireframe tank, so
+    // the water reads as a clear body filling the tank right to its edges (通透)
+    // — you see straight through it to the fish, with a gentle blue tint. Unlit
+    // so it's a pure tint rather than a shaded solid, and not a shadow caster so
+    // it doesn't darken the scene.
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::from_size(cfg.bounds * 2.0))),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::srgba(0.10, 0.36, 0.52, 0.16),
+            alpha_mode: AlphaMode::Blend,
+            unlit: true,
+            ..default()
+        })),
+        NotShadowCaster,
     ));
 
     // --- Creature assets ------------------------------------------------

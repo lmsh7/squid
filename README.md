@@ -56,6 +56,9 @@ already ships, so it also runs under the headless software renderer:
   so it's still bounded by the species' speed envelope and turning radius.
 - **Marine snow** — a few hundred faint particles that the current advects and
   that slowly sink, wrapping back in from the top so the volume stays populated.
+- **Clear water** — a faint translucent blue box, exactly the size of the
+  wireframe tank, gives the water a clear, see-through body that fills the tank
+  right to its edges.
 - **Distance fog** — an exponential `DistanceFog` on the camera tints and fades
   distant fish into the water colour.
 - **Sunlight** — a `VolumetricLight` "sun" scatters through a `FogVolume` filling
