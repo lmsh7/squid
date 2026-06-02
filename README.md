@@ -11,8 +11,9 @@ project and reimagined in three dimensions with a predator/prey twist.
 
 Two schools share a tank filled with **moving water**: a swirling current drags
 the schools around and stirs them into eddies, drifting "marine snow" particles
-sink through the volume, and distance fog dissolves far-off fish into the murky
-blue — so the tank reads as a body of water, not empty space.
+sink through the volume, distance fog dissolves far-off fish into the murky blue,
+and **sunlight scatters down** through the water from above — so the tank reads
+as a body of water, not empty space.
 
 Two schools share that tank:
 
@@ -57,6 +58,11 @@ already ships, so it also runs under the headless software renderer:
   that slowly sink, wrapping back in from the top so the volume stays populated.
 - **Distance fog** — an exponential `DistanceFog` on the camera tints and fades
   distant fish into the water colour.
+- **Sunlight** — a `VolumetricLight` "sun" scatters through a `FogVolume` filling
+  the tank, so light glows softly down through the water and the schools are lit
+  from above. The cameras render in HDR with bloom so the lit water and fish
+  glow. (Bevy 0.16 only scatters *directional* lights volumetrically, so this is
+  a soft sun glow rather than hard, occluder-carved god-ray shafts.)
 
 ## Running
 

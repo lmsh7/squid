@@ -2,7 +2,8 @@
 
 use std::f32::consts::FRAC_PI_2;
 
-use bevy::pbr::{DistanceFog, FogFalloff};
+use bevy::core_pipeline::bloom::{Bloom, BloomCompositeMode, BloomPrefilter};
+use bevy::pbr::{DistanceFog, FogFalloff, FogVolume, VolumetricFog, VolumetricLight};
 use bevy::prelude::*;
 use rand::Rng;
 
@@ -35,13 +36,47 @@ pub fn water_fog() -> DistanceFog {
     }
 }
 
+/// Enables volumetric lighting on the camera, so the sun's `VolumetricLight`
+/// scatters through the `FogVolume` into a soft glow of sunlight. Jitter softens
+/// the raymarch banding. Shared by the windowed and headless cameras.
+pub fn sun_rays() -> VolumetricFog {
+    VolumetricFog {
+        jitter: 0.4,
+        ..default()
+    }
+}
+
+/// Bloom for the light shafts: a low threshold so the moderately bright
+/// volumetric scattering glows (not just fully blown-out pixels), composited
+/// additively so it reads as light on top of the dark water. Shared by both
+/// cameras.
+pub fn beam_bloom() -> Bloom {
+    Bloom {
+        intensity: 0.35,
+        prefilter: BloomPrefilter {
+            threshold: 0.2,
+            threshold_softness: 0.2,
+        },
+        composite_mode: BloomCompositeMode::Additive,
+        ..Bloom::OLD_SCHOOL
+    }
+}
+
 /// Spawn the windowed gameplay camera. (The headless capture binary spawns its
 /// own camera that renders to an offscreen image instead.)
 pub fn spawn_window_camera(mut commands: Commands) {
     commands.spawn((
         Camera3d::default(),
+        // HDR + bloom let the bright volumetric beams glow and bleed, which is
+        // what makes them read as shafts of light rather than flat haze.
+        Camera {
+            hdr: true,
+            ..default()
+        },
+        beam_bloom(),
         Transform::from_xyz(0.0, 25.0, 72.0).looking_at(Vec3::ZERO, Vec3::Y),
         water_fog(),
+        sun_rays(),
     ));
 }
 
@@ -54,13 +89,19 @@ pub fn setup_scene(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // --- Lighting -------------------------------------------------------
+    // The "sun": a directional light slanting down into the tank. `VolumetricLight`
+    // makes it scatter through the water (see the fog volume below) into a soft
+    // glow of sunlight. (Bevy 0.16 only scatters directional lights volumetrically.)
     commands.spawn((
         DirectionalLight {
-            illuminance: 9000.0,
+            // Bright, sun-like: volumetric in-scattering scales with the light's
+            // radiance, so a strong sun is what makes the water glow.
+            illuminance: 20_000.0,
             shadows_enabled: true,
             ..default()
         },
         Transform::from_xyz(30.0, 60.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
+        VolumetricLight,
     ));
     // A second, cooler fill light from below for an underwater feel.
     commands.spawn((
@@ -71,6 +112,25 @@ pub fn setup_scene(
             ..default()
         },
         Transform::from_xyz(0.0, -40.0, 0.0),
+    ));
+
+    // The body of water the sun scatters through. A `FogVolume` is a unit cube
+    // scaled by its transform, so this fills the whole tank; the sun above
+    // scatters through it into a soft volumetric glow of sunlight.
+    commands.spawn((
+        FogVolume {
+            fog_color: Color::srgb(0.06, 0.30, 0.55),
+            density_factor: 0.3,
+            scattering: 0.9,
+            absorption: 0.15,
+            // Forward scattering concentrates a soft halo of glow toward the sun
+            // direction, reading as sunlight pouring down through the water.
+            scattering_asymmetry: 0.6,
+            light_intensity: 14.0,
+            light_tint: Color::srgb(0.8, 0.9, 1.0),
+            ..default()
+        },
+        Transform::from_scale(cfg.bounds * 2.0),
     ));
 
     // --- Creature assets ------------------------------------------------
