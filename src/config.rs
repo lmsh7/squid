@@ -61,20 +61,23 @@ impl Default for SimConfig {
                 cohesion_weight: 0.9,
             },
             tuna: BoidParams {
-                max_speed: 11.0,
-                min_speed: 4.0,
-                max_force: 10.0,
-                perception: 7.0,
-                separation_dist: 3.0,
-                separation_weight: 2.0,
-                alignment_weight: 0.6,
-                cohesion_weight: 0.5,
+                max_speed: 13.0,
+                min_speed: 5.0,
+                max_force: 12.0,
+                // See far and across the whole pack so the school stays unified.
+                perception: 12.0,
+                separation_dist: 2.0,
+                separation_weight: 1.3,
+                // Strong alignment + cohesion makes the tuna charge as one pack.
+                alignment_weight: 2.0,
+                cohesion_weight: 1.4,
             },
 
-            flee_radius: 7.5,
+            flee_radius: 8.5,
             flee_weight: 3.5,
-            hunt_radius: 16.0,
-            hunt_weight: 2.2,
+            // Commit to a bait ball from far away and chase it hard.
+            hunt_radius: 24.0,
+            hunt_weight: 2.6,
             eat_radius: 1.0,
 
             boundary_margin: 4.0,

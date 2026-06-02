@@ -58,7 +58,8 @@ pub fn flocking_system(
 
         // Interaction accumulators.
         let mut flee = Vec3::ZERO; // squid only
-        let mut nearest_prey: Option<(f32, Vec3)> = None; // tuna only
+        let mut prey_center_sum = Vec3::ZERO; // tuna only
+        let mut prey_count = 0u32; // tuna only
 
         for other in &agents {
             if other.entity == entity {
@@ -88,10 +89,12 @@ pub fn flocking_system(
                         }
                     }
                     Species::Tuna => {
-                        if dist < cfg.hunt_radius
-                            && nearest_prey.map_or(true, |(d, _)| dist < d)
-                        {
-                            nearest_prey = Some((dist, other.pos));
+                        // Aim at the centre of mass of the squid school in
+                        // range, not just the nearest squid, so a pack of tuna
+                        // converges on the same bait ball and charges together.
+                        if dist < cfg.hunt_radius {
+                            prey_center_sum += other.pos;
+                            prey_count += 1;
                         }
                     }
                 }
@@ -118,9 +121,10 @@ pub fn flocking_system(
                 }
             }
             Species::Tuna => {
-                if let Some((_, prey_pos)) = nearest_prey {
+                if prey_count > 0 {
+                    let target = prey_center_sum / prey_count as f32;
                     accel +=
-                        steer_towards(prey_pos - pos, vel, p.max_speed, p.max_force) * cfg.hunt_weight;
+                        steer_towards(target - pos, vel, p.max_speed, p.max_force) * cfg.hunt_weight;
                 }
             }
         }
