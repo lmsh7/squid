@@ -21,18 +21,23 @@ struct CreatureAssets {
     eye_mat: Handle<StandardMaterial>,
 }
 
-pub fn setup(
+/// Spawn the windowed gameplay camera. (The headless capture binary spawns its
+/// own camera that renders to an offscreen image instead.)
+pub fn spawn_window_camera(mut commands: Commands) {
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 25.0, 72.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
+}
+
+/// Spawn the lights, both schools of boids, and the HUD. Shared by the game and
+/// the headless capture binary; the camera is added separately by each.
+pub fn setup_scene(
     mut commands: Commands,
     cfg: Res<SimConfig>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // --- Camera ---------------------------------------------------------
-    commands.spawn((
-        Camera3d::default(),
-        Transform::from_xyz(0.0, 25.0, 72.0).looking_at(Vec3::ZERO, Vec3::Y),
-    ));
-
     // --- Lighting -------------------------------------------------------
     commands.spawn((
         DirectionalLight {

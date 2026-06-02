@@ -4,20 +4,13 @@
 //! while tuna (predators) school loosely and hunt the nearest squid. The
 //! design is inspired by Jonas Lindstrøm's `Boids` project, reimagined in 3D.
 
-mod camera;
-mod components;
-mod config;
-mod flocking;
-mod setup;
-mod ui;
-
 use bevy::prelude::*;
 
-use camera::{camera_apply, camera_input, OrbitCamera};
-use config::{Score, SimConfig};
-use flocking::{flocking_system, hunting_system, movement_system};
-use setup::setup;
-use ui::{draw_bounds, update_stats};
+use squid::camera::{camera_apply, camera_input, OrbitCamera};
+use squid::config::{Score, SimConfig};
+use squid::flocking::{flocking_system, hunting_system, movement_system};
+use squid::setup::{setup_scene, spawn_window_camera};
+use squid::ui::{draw_bounds, update_stats};
 
 fn main() {
     App::new()
@@ -37,7 +30,7 @@ fn main() {
         .init_resource::<SimConfig>()
         .init_resource::<Score>()
         .init_resource::<OrbitCamera>()
-        .add_systems(Startup, setup)
+        .add_systems(Startup, (spawn_window_camera, setup_scene))
         .add_systems(
             Update,
             (
