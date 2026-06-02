@@ -26,6 +26,29 @@ fn steer_towards(desired_dir: Vec3, vel: Vec3, max_speed: f32, max_force: f32) -
     (desired - vel).clamp_length_max(max_force)
 }
 
+/// Rotate `new_vel` so its heading is at most `max_angle` radians away from the
+/// heading of `old_vel`, preserving the new speed. This caps the turn rate.
+fn limit_turn(old_vel: Vec3, new_vel: Vec3, max_angle: f32) -> Vec3 {
+    let new_speed = new_vel.length();
+    if old_vel.length_squared() < 1e-8 || new_speed < 1e-6 {
+        return new_vel;
+    }
+    let old_dir = old_vel.normalize();
+    let new_dir = new_vel / new_speed;
+    let angle = old_dir.angle_between(new_dir);
+    if angle <= max_angle {
+        return new_vel;
+    }
+    let axis = old_dir.cross(new_dir);
+    if axis.length_squared() < 1e-8 {
+        // Nearly opposite headings: pick any perpendicular axis to turn around.
+        let fallback = if old_dir.x.abs() < 0.9 { Vec3::X } else { Vec3::Y };
+        let axis = old_dir.cross(fallback).normalize();
+        return Quat::from_axis_angle(axis, max_angle) * old_dir * new_speed;
+    }
+    Quat::from_axis_angle(axis.normalize(), max_angle) * old_dir * new_speed
+}
+
 /// Recompute every boid's velocity from its neighbours and the other species.
 pub fn flocking_system(
     time: Res<Time>,
@@ -152,6 +175,12 @@ pub fn flocking_system(
                 Vec3::new(p.min_speed, 0.0, 0.0)
             };
         }
+
+        // Limit how fast the heading can change, giving each species a real
+        // turning radius (radius ~= speed / max_turn_rate). Big fast tuna sweep
+        // through wide arcs; nimble squid pivot sharply.
+        new_vel = limit_turn(vel, new_vel, p.max_turn_rate * dt);
+
         velocity.0 = new_vel;
     }
 }

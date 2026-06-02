@@ -16,6 +16,9 @@ pub struct BoidParams {
     pub separation_weight: f32,
     pub alignment_weight: f32,
     pub cohesion_weight: f32,
+    /// Maximum heading change in radians per second. Smaller = wider turning
+    /// radius (turning radius ~= speed / max_turn_rate).
+    pub max_turn_rate: f32,
 }
 
 /// Global simulation configuration.
@@ -64,6 +67,8 @@ impl Default for SimConfig {
                 alignment_weight: 1.2,
                 // Strong cohesion keeps the school balled up under attack.
                 cohesion_weight: 1.8,
+                // Nimble: squid can pivot tightly to dodge.
+                max_turn_rate: 6.0,
             },
             tuna: BoidParams {
                 // Clearly faster than squid (8.0) so a charge runs them down.
@@ -80,6 +85,9 @@ impl Default for SimConfig {
                 // cohesion holds the formation together without crowding.
                 alignment_weight: 2.0,
                 cohesion_weight: 0.9,
+                // Big and fast: a wide turning radius, so a charge overshoots
+                // the bait ball and sweeps around for another pass.
+                max_turn_rate: 1.2,
             },
 
             flee_radius: 8.5,
