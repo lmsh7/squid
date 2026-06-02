@@ -144,13 +144,17 @@ pub fn setup_scene(
     // the water reads as a clear body filling the tank right to its edges (通透)
     // — you see straight through it to the fish, with a gentle blue tint. Unlit
     // so it's a pure tint rather than a shaded solid, and not a shadow caster so
-    // it doesn't darken the scene.
+    // it doesn't darken the scene. Double-sided (`cull_mode: None`) so every
+    // view ray crosses both the entry and exit face: the tint then fills the
+    // whole box evenly from any angle, instead of clinging to the faces that
+    // happen to face the camera as the view orbits.
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::from_size(cfg.bounds * 2.0))),
         MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: Color::srgba(0.10, 0.36, 0.52, 0.16),
+            base_color: Color::srgba(0.10, 0.36, 0.52, 0.11),
             alpha_mode: AlphaMode::Blend,
             unlit: true,
+            cull_mode: None,
             ..default()
         })),
         NotShadowCaster,
