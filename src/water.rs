@@ -82,6 +82,10 @@ pub fn drift_particles(
             p.y = b.y;
             p.x = rng.gen_range(-b.x..b.x);
             p.z = rng.gen_range(-b.z..b.z);
+        } else if p.y > b.y {
+            // Peak upward current can just outpace the sink, so hold particles
+            // at the surface instead of letting them drift out through the top.
+            p.y = b.y;
         }
         // Wrap sideways so the current never sweeps the tank empty.
         if p.x > b.x {

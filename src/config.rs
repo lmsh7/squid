@@ -72,7 +72,9 @@ pub struct SimConfig {
     /// A squid this close to a tuna gets eaten.
     pub eat_radius: f32,
 
-    /// How far from a wall a boid starts steering back.
+    /// How far from a wall a boid starts steering back. Only used if the soft
+    /// `boundary_force` is re-enabled in `flocking_system`; containment is
+    /// otherwise a hard position clamp in `movement_system`.
     pub boundary_margin: f32,
     pub boundary_weight: f32,
 }
@@ -148,8 +150,9 @@ impl Default for SimConfig {
             hunt_speed_boost: 1.4,
             eat_radius: 1.4,
 
-            // Start steering back early: the fast, wide-turning tuna need a lot
-            // of room to bank away from a wall before they reach it.
+            // Tuning for the (currently disabled) soft boundary steering: a wide
+            // margin would let the fast, wide-turning tuna bank away early. Kept
+            // for if `boundary_force` is re-enabled.
             boundary_margin: 7.0,
             boundary_weight: 5.0,
         }

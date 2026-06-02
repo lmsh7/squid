@@ -220,8 +220,8 @@ fn boundary_force(pos: Vec3, vel: Vec3, cfg: &SimConfig, max_speed: f32, max_for
 }
 
 /// Move every boid along its velocity and smoothly turn it to face the way it
-/// is heading. A hard clamp to the tank backstops the soft boundary force,
-/// since a fast, wide-turning tuna can overshoot a wall before it can turn.
+/// is heading. A hard clamp to the tank is the sole containment now (the soft
+/// boundary steering is disabled): fish swim up to a wall and slide along it.
 pub fn movement_system(
     time: Res<Time>,
     cfg: Res<SimConfig>,

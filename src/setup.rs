@@ -26,8 +26,8 @@ struct CreatureAssets {
 }
 
 /// Underwater distance fog: distant fish dissolve into the surrounding water
-/// colour, selling the sense of a murky, light-absorbing volume. Shared by the
-/// windowed and headless cameras so both look the same.
+/// colour, selling the sense of clear blue depth. Shared by the windowed and
+/// headless cameras so both look the same.
 pub fn water_fog() -> DistanceFog {
     DistanceFog {
         // Matches the clear-water background, so distance reads as translucent
