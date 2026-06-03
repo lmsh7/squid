@@ -70,7 +70,7 @@ fn main() {
         })
         .init_resource::<SimConfig>()
         .init_resource::<Score>()
-        .insert_resource(OrbitCamera::default())
+        .insert_resource(capture_camera())
         .insert_resource(Capture {
             frame: 0,
             warmup,
@@ -105,6 +105,26 @@ fn env_u32(key: &str, default: u32) -> u32 {
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(default)
+}
+
+fn env_f32(key: &str, default: f32) -> f32 {
+    std::env::var(key)
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(default)
+}
+
+/// The orbit camera for the capture, with optional framing overrides so a
+/// preview can be pulled in close to show off the fish without changing the
+/// game's default camera. `CAPTURE_RADIUS` / `CAPTURE_PITCH` override the
+/// distance and tilt; unset, they leave the shared default untouched.
+fn capture_camera() -> OrbitCamera {
+    let base = OrbitCamera::default();
+    OrbitCamera {
+        radius: env_f32("CAPTURE_RADIUS", base.radius),
+        pitch: env_f32("CAPTURE_PITCH", base.pitch),
+        ..base
+    }
 }
 
 fn setup_capture_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
