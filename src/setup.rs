@@ -2,14 +2,18 @@
 
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
-use bevy::light::{FogVolume, NotShadowCaster, VolumetricFog, VolumetricLight};
+use bevy::light::NotShadowCaster;
 use bevy::pbr::{DistanceFog, FogFalloff};
+use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::post_process::bloom::{Bloom, BloomCompositeMode, BloomPrefilter};
 use bevy::prelude::*;
+use bevy::render::render_resource::Face;
 use bevy::render::view::Hdr;
 use rand::Rng;
 
-use crate::components::{FishPart, RestPose, Species, Squid, StatsText, SwimGait, Tuna, Velocity};
+use crate::components::{
+    FishPart, RestPose, Species, Squid, StatsText, SwimGait, Tuna, Velocity, WaterTint,
+};
 use crate::config::SimConfig;
 use crate::flocking::{random_point, random_velocity};
 
@@ -56,36 +60,36 @@ fn random_gait(rng: &mut impl Rng) -> SwimGait {
 /// colour, selling the sense of clear blue depth. Shared by the windowed and
 /// headless cameras so both look the same.
 pub fn water_fog() -> DistanceFog {
+    // `Atmospheric` falloff attenuates each R/G/B channel independently — the
+    // real-water cue. Water absorbs red light within metres but lets blue-green
+    // travel far, so an `extinction_color` that keeps blue-green and an
+    // `inscattering_color` of the same water blue make distance read as genuine
+    // underwater depth (warm tones drop out first, the volume turns teal-blue and
+    // fades into the matching background) rather than a flat blue tint. Unlike a
+    // `FogVolume` this is purely per-distance, so it has no hard boundary to flare
+    // along and never jumps as the camera orbits. `visibility` is the clear-water
+    // sight distance in world units; the tank is ~56 across.
     DistanceFog {
-        // Matches the clear-water background, so distance reads as translucent
-        // blue depth (atmospheric perspective) rather than a murky black void.
-        color: Color::srgb(0.05, 0.22, 0.34),
-        // Gentle enough that the near water stays clear and see-through, with
-        // the far wall fading into blue.
-        falloff: FogFalloff::ExponentialSquared { density: 0.011 },
+        falloff: FogFalloff::from_visibility_colors(
+            48.0,
+            // Extinction: blue-green survives, red is scrubbed out with distance.
+            Color::srgb(0.42, 0.62, 0.70),
+            // In-scattering: the water's own blue-teal glow added back over distance.
+            Color::srgb(0.06, 0.30, 0.46),
+        ),
         ..default()
     }
 }
 
-/// Enables volumetric lighting on the camera, so the sun's `VolumetricLight`
-/// scatters through the `FogVolume` into a soft glow of sunlight. Jitter softens
-/// the raymarch banding. Shared by the windowed and headless cameras.
-pub fn sun_rays() -> VolumetricFog {
-    VolumetricFog {
-        jitter: 0.4,
-        ..default()
-    }
-}
-
-/// Bloom for the light shafts: a low threshold so the moderately bright
-/// volumetric scattering glows (not just fully blown-out pixels), composited
-/// additively so it reads as light on top of the dark water. Shared by both
-/// cameras.
+/// Bloom for the light shafts: a moderate threshold so only the genuinely bright
+/// shaft highlights bloom, not the whole moderately-lit water volume — a low
+/// threshold plus additive compositing was pushing the entire tank to a washed-out
+/// white. Shared by both cameras.
 pub fn beam_bloom() -> Bloom {
     Bloom {
         intensity: 0.35,
         prefilter: BloomPrefilter {
-            threshold: 0.2,
+            threshold: 0.7,
             threshold_softness: 0.2,
         },
         composite_mode: BloomCompositeMode::Additive,
@@ -101,10 +105,13 @@ pub fn spawn_window_camera(mut commands: Commands) {
         // HDR + bloom let the bright volumetric beams glow and bleed, which is
         // what makes them read as shafts of light rather than flat haze.
         Hdr,
+        // Roll the bright HDR water back to clear blue instead of letting it
+        // clip to white. Without a tonemapper the ambient + volumetric glow
+        // overexposes the whole tank to a washed-out haze.
+        Tonemapping::TonyMcMapface,
         beam_bloom(),
         Transform::from_xyz(0.0, 25.0, 72.0).looking_at(Vec3::ZERO, Vec3::Y),
         water_fog(),
-        sun_rays(),
     ));
 }
 
@@ -117,19 +124,21 @@ pub fn setup_scene(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // --- Lighting -------------------------------------------------------
-    // The "sun": a directional light slanting down into the tank. `VolumetricLight`
-    // makes it scatter through the water (see the fog volume below) into a soft
-    // glow of sunlight. (Bevy 0.18 only scatters directional lights volumetrically.)
+    // The "sun": a directional light straight overhead, shining vertically down
+    // into the tank so it lights the fish from above evenly rather than from one
+    // side. Shadows are off: with a single enclosing tank there is nothing to
+    // cast a meaningful shadow, and a shadowed sun only complicated the water.
     commands.spawn((
         DirectionalLight {
-            // Bright, sun-like: volumetric in-scattering scales with the light's
-            // radiance, so a strong sun is what makes the water glow.
+            // Bright, sun-like: lights the fish surfaces from above.
             illuminance: 20_000.0,
-            shadows_enabled: true,
+            shadows_enabled: false,
             ..default()
         },
-        Transform::from_xyz(30.0, 60.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
-        VolumetricLight,
+        // Straight down (-Y). The `up` reference for `look_at` must be horizontal
+        // (`Vec3::Z`): with a vertical look direction, `Vec3::Y` would be parallel
+        // to the view and the rotation would be undefined.
+        Transform::from_xyz(0.0, 60.0, 0.0).looking_at(Vec3::ZERO, Vec3::Z),
     ));
     // A second, cooler fill light from below for an underwater feel.
     commands.spawn((
@@ -142,46 +151,38 @@ pub fn setup_scene(
         Transform::from_xyz(0.0, -40.0, 0.0),
     ));
 
-    // The body of water the sun scatters through. A `FogVolume` is a unit cube
-    // scaled by its transform, so this fills the whole tank; the sun above
-    // scatters through it into a soft volumetric glow of sunlight.
-    commands.spawn((
-        FogVolume {
-            fog_color: Color::srgb(0.12, 0.38, 0.58),
-            // Thin and barely-absorbing: this only adds the soft sunlit glow
-            // inside the water. The translucent box below is what gives the
-            // water its clear blue body and crisp edges at the wireframe.
-            density_factor: 0.09,
-            scattering: 0.5,
-            absorption: 0.03,
-            // Forward scattering concentrates a soft halo of glow toward the sun
-            // direction, reading as sunlight pouring down through the water.
-            scattering_asymmetry: 0.6,
-            light_intensity: 30.0,
-            light_tint: Color::srgb(0.8, 0.9, 1.0),
-            ..default()
-        },
-        Transform::from_scale(cfg.bounds * 2.0),
-    ));
+    // No `FogVolume`/`VolumetricLight` here: a screen-bounded volumetric fog
+    // raymarches each pixel to the far face of its box, so the corner where the
+    // view skims the box's far edge accumulates the longest path and flares
+    // bright — and that bright edge jumps from wall to wall as the camera orbits.
+    // The clear blue body of water comes instead from the camera's `DistanceFog`
+    // (a smooth per-distance tint with no hard volume boundary) plus the
+    // translucent tint box below.
 
     // A faint translucent blue box, exactly the size of the wireframe tank, so
     // the water reads as a clear body filling the tank right to its edges (通透)
     // — you see straight through it to the fish, with a gentle blue tint. Unlit
     // so it's a pure tint rather than a shaded solid, and not a shadow caster so
-    // it doesn't darken the scene. Double-sided (`cull_mode: None`) so every
-    // view ray crosses both the entry and exit face: the tint then fills the
-    // whole box evenly from any angle, instead of clinging to the faces that
-    // happen to face the camera as the view orbits.
+    // it doesn't darken the scene.
+    //
+    // A `Blend` material writes no depth and is sorted as a whole by its centre's
+    // distance to the camera. This box is centred on the origin and encloses the
+    // entire tank, so most fish sit *closer* to the camera than the box centre —
+    // the renderer then draws the box *over* them and the blue tint clings to the
+    // camera-facing side like a film stuck to the lens. Culling the front faces
+    // (`Face::Front`) draws only the box's *far* wall, behind every fish, so the
+    // tint reads as the blue depth of the water rather than a sheet on the lens.
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::from_size(cfg.bounds * 2.0))),
         MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: Color::srgba(0.10, 0.36, 0.52, 0.11),
+            base_color: Color::srgba(0.10, 0.40, 0.58, 0.28),
             alpha_mode: AlphaMode::Blend,
             unlit: true,
-            cull_mode: None,
+            cull_mode: Some(Face::Front),
             ..default()
         })),
         NotShadowCaster,
+        WaterTint,
     ));
 
     // --- Creature assets ------------------------------------------------

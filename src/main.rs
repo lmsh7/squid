@@ -7,11 +7,11 @@
 use bevy::prelude::*;
 
 use squid::animation::animate_fish;
-use squid::camera::{camera_apply, camera_input, OrbitCamera};
+use squid::camera::{camera_apply, camera_input, fade_water_tint, OrbitCamera};
 use squid::config::{Score, SimConfig};
 use squid::flocking::{flocking_system, hunting_system, movement_system};
 use squid::setup::{setup_scene, spawn_window_camera};
-use squid::ui::{draw_bounds, update_stats};
+use squid::ui::{configure_gizmos, draw_bounds, update_stats};
 use squid::water::{drift_particles, spawn_water_particles};
 
 fn main() {
@@ -23,10 +23,10 @@ fn main() {
             }),
             ..default()
         }))
-        .insert_resource(ClearColor(Color::srgb(0.05, 0.22, 0.34)))
+        .insert_resource(ClearColor(Color::srgb(0.06, 0.28, 0.44)))
         .insert_resource(GlobalAmbientLight {
             color: Color::srgb(0.5, 0.7, 1.0),
-            brightness: 220.0,
+            brightness: 130.0,
             ..default()
         })
         .init_resource::<SimConfig>()
@@ -34,7 +34,12 @@ fn main() {
         .init_resource::<OrbitCamera>()
         .add_systems(
             Startup,
-            (spawn_window_camera, setup_scene, spawn_water_particles),
+            (
+                spawn_window_camera,
+                setup_scene,
+                spawn_water_particles,
+                configure_gizmos,
+            ),
         )
         .add_systems(
             Update,
@@ -46,6 +51,7 @@ fn main() {
                 hunting_system,
                 camera_input,
                 camera_apply,
+                fade_water_tint,
                 update_stats,
                 draw_bounds,
             )

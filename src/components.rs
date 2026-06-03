@@ -65,3 +65,9 @@ pub struct RestPose(pub Transform);
 /// Marker for the on-screen statistics text.
 #[derive(Component)]
 pub struct StatsText;
+
+/// Marker for the translucent blue water-tint box, so a system can fade it out
+/// as the camera zooms inside the tank (where the tint would otherwise smear
+/// across the view and never resolve no matter how far you zoom in).
+#[derive(Component)]
+pub struct WaterTint;
