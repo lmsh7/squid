@@ -45,6 +45,36 @@ school sizes, per-species speeds and forces, perception radii, the
 flee/hunt/eat distances, and the water (`WaterParams`: current strength/scale,
 bulk drift, and the drifting particles). Tweak and re-run to change the dynamics.
 
+## The fish
+
+Each creature is more than a single blob: it's a small **procedural rig** of
+parts assembled from Bevy primitives in [`src/setup.rs`](src/setup.rs), with the
+orientation baked into every fin's mesh so the entity carrying it can pivot
+cleanly at the joint.
+
+- **🐟 Tuna** — a smooth fusiform body, a tall vertical **caudal fin**, a dorsal
+  fin, and two **pectoral fins**. The body and tail hang off a `Body` pivot near
+  the head, so motion travels down the flank to the tail.
+- **🦑 Squid** — a tapered, pointed **mantle**, two posterior **lateral fins**, a
+  head, and a trailing sheaf of **arms/tentacles**.
+
+The parts a fish can flex are tagged with `FishPart` (the "skeleton"), and
+[`src/animation.rs`](src/animation.rs) drives them every frame:
+
+| Part | Motion |
+| --- | --- |
+| **Tuna body** | A gentle carangiform S-curve the tail rides on. |
+| **Caudal fin** | Yaws side to side — the main thrust, lagging the body wave. |
+| **Pectoral fins** | Paddle slowly, mirrored side to side. |
+| **Squid mantle** | Pulses in and out, evoking jet propulsion. |
+| **Lateral fins** | Roll in a travelling ripple, the two sides half a cycle apart. |
+| **Tentacles** | Sway and nod, trailing as the squid swims. |
+
+The beat **frequency rises with swimming speed** and each fish carries a random
+phase/tempo (`SwimGait`), so a charging tuna thrashes its tail hard and fast
+while a cruising one barely idles — and no two fish in a school are ever quite
+in step.
+
 ## The water body
 
 The water is a lightweight, dependency-free effect built on what Bevy 0.18
@@ -97,10 +127,11 @@ sudo apt-get install -y libasound2-dev libudev-dev libwayland-dev libxkbcommon-d
 | `src/main.rs` | The game binary: windowed app, plugins, and system schedule. |
 | `src/lib.rs` | Shared library re-exporting the simulation modules. |
 | `src/bin/capture.rs` | Headless renderer that saves a PNG sequence (no window). |
-| `src/components.rs` | ECS components (`Species`, `Velocity`, markers). |
+| `src/components.rs` | ECS components (`Species`, `Velocity`, the `FishPart` rig, markers). |
 | `src/config.rs` | `SimConfig` tuning resource and the `Score` tally. |
-| `src/setup.rs` | Spawns the lights, tank, and both schools. |
+| `src/setup.rs` | Spawns the lights, tank, and both schools (incl. the fish rigs). |
 | `src/flocking.rs` | The boids rules, movement, and the hunting/eating logic. |
+| `src/animation.rs` | Procedural swim animation that flexes each fish's `FishPart` rig. |
 | `src/water.rs` | The water current field plus the drifting "marine snow" particles. |
 | `src/camera.rs` | Orbit camera state and input. |
 | `src/ui.rs` | Heads-up display and the wireframe tank boundary. |
@@ -115,19 +146,24 @@ GPU by using a software Vulkan driver such as Mesa's lavapipe:
 # One-time: software Vulkan + an encoder (Debian/Ubuntu)
 sudo apt-get install -y mesa-vulkan-drivers ffmpeg
 
-# Render a PNG sequence to $CAPTURE_DIR
+# Render a PNG sequence to $CAPTURE_DIR. The capture camera holds still (so the
+# swimming is the motion); CAPTURE_RADIUS / CAPTURE_PITCH frame the shot.
 VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.json WGPU_BACKEND=vulkan \
-CAPTURE_DIR=/tmp/squidcap CAPTURE_WARMUP=50 CAPTURE_FRAMES=160 \
-cargo run --bin capture
+CAPTURE_DIR=/tmp/squidcap CAPTURE_WARMUP=50 CAPTURE_FRAMES=150 \
+CAPTURE_RADIUS=60 CAPTURE_PITCH=0.22 \
+cargo run --release --bin capture
 
-# Encode the frames into a GIF
+# Encode the frames into a GIF (dither=none keeps the file small on the smooth
+# water gradient; drop it for finer shading at a larger size).
 ffmpeg -y -framerate 24 -i /tmp/squidcap/frame_%04d.png \
-  -vf "fps=20,scale=600:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" \
+  -vf "fps=18,scale=560:-1:flags=lanczos,split[s0][s1];[s0]palettegen=stats_mode=diff[p];[s1][p]paletteuse=dither=none" \
   assets/preview.gif
 ```
 
-`CAPTURE_WARMUP` skips initial frames so the schools settle before capture, and
-`CAPTURE_FRAMES` sets how many frames to save.
+`CAPTURE_WARMUP` skips initial frames so the schools settle before capture,
+`CAPTURE_FRAMES` sets how many frames to save, and `CAPTURE_RADIUS` /
+`CAPTURE_PITCH` frame the shot (the preview above used the values shown). Set
+`CAPTURE_AUTO_ORBIT=1` to slowly orbit the camera like the windowed game.
 
 ## License
 

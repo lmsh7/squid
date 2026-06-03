@@ -16,6 +16,7 @@ use bevy::render::view::Hdr;
 use bevy::window::ExitCondition;
 use bevy::winit::WinitPlugin;
 
+use squid::animation::animate_fish;
 use squid::camera::{camera_apply, camera_input, OrbitCamera};
 use squid::config::{Score, SimConfig};
 use squid::flocking::{flocking_system, hunting_system, movement_system};
@@ -69,7 +70,7 @@ fn main() {
         })
         .init_resource::<SimConfig>()
         .init_resource::<Score>()
-        .insert_resource(OrbitCamera::default())
+        .insert_resource(capture_camera())
         .insert_resource(Capture {
             frame: 0,
             warmup,
@@ -85,6 +86,7 @@ fn main() {
             (
                 flocking_system,
                 movement_system,
+                animate_fish,
                 drift_particles,
                 hunting_system,
                 camera_input,
@@ -103,6 +105,31 @@ fn env_u32(key: &str, default: u32) -> u32 {
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(default)
+}
+
+fn env_f32(key: &str, default: f32) -> f32 {
+    std::env::var(key)
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(default)
+}
+
+/// The orbit camera for the capture, with optional framing overrides so a
+/// preview can be pulled in close to show off the fish without changing the
+/// game's default camera. `CAPTURE_RADIUS` / `CAPTURE_PITCH` override the
+/// distance and tilt; unset, they leave the shared default untouched.
+///
+/// The camera holds still by default (unlike the windowed game's slow
+/// auto-orbit) so the preview stays framed on the schools and the swimming
+/// itself is the motion. Set `CAPTURE_AUTO_ORBIT=1` to orbit instead.
+fn capture_camera() -> OrbitCamera {
+    let base = OrbitCamera::default();
+    OrbitCamera {
+        radius: env_f32("CAPTURE_RADIUS", base.radius),
+        pitch: env_f32("CAPTURE_PITCH", base.pitch),
+        auto: env_u32("CAPTURE_AUTO_ORBIT", 0) != 0,
+        ..base
+    }
 }
 
 fn setup_capture_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
