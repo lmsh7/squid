@@ -146,11 +146,11 @@ GPU by using a software Vulkan driver such as Mesa's lavapipe:
 # One-time: software Vulkan + an encoder (Debian/Ubuntu)
 sudo apt-get install -y mesa-vulkan-drivers ffmpeg
 
-# Render a PNG sequence to $CAPTURE_DIR. CAPTURE_RADIUS / CAPTURE_PITCH pull the
-# camera in close to show off the fish (omit them for the full-tank default).
+# Render a PNG sequence to $CAPTURE_DIR. The capture camera holds still (so the
+# swimming is the motion); CAPTURE_RADIUS / CAPTURE_PITCH frame the shot.
 VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.json WGPU_BACKEND=vulkan \
 CAPTURE_DIR=/tmp/squidcap CAPTURE_WARMUP=50 CAPTURE_FRAMES=150 \
-CAPTURE_RADIUS=42 CAPTURE_PITCH=0.18 \
+CAPTURE_RADIUS=60 CAPTURE_PITCH=0.22 \
 cargo run --release --bin capture
 
 # Encode the frames into a GIF (dither=none keeps the file small on the smooth
@@ -162,7 +162,8 @@ ffmpeg -y -framerate 24 -i /tmp/squidcap/frame_%04d.png \
 
 `CAPTURE_WARMUP` skips initial frames so the schools settle before capture,
 `CAPTURE_FRAMES` sets how many frames to save, and `CAPTURE_RADIUS` /
-`CAPTURE_PITCH` frame the shot (the preview above used the values shown).
+`CAPTURE_PITCH` frame the shot (the preview above used the values shown). Set
+`CAPTURE_AUTO_ORBIT=1` to slowly orbit the camera like the windowed game.
 
 ## License
 

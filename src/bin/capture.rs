@@ -118,11 +118,16 @@ fn env_f32(key: &str, default: f32) -> f32 {
 /// preview can be pulled in close to show off the fish without changing the
 /// game's default camera. `CAPTURE_RADIUS` / `CAPTURE_PITCH` override the
 /// distance and tilt; unset, they leave the shared default untouched.
+///
+/// The camera holds still by default (unlike the windowed game's slow
+/// auto-orbit) so the preview stays framed on the schools and the swimming
+/// itself is the motion. Set `CAPTURE_AUTO_ORBIT=1` to orbit instead.
 fn capture_camera() -> OrbitCamera {
     let base = OrbitCamera::default();
     OrbitCamera {
         radius: env_f32("CAPTURE_RADIUS", base.radius),
         pitch: env_f32("CAPTURE_PITCH", base.pitch),
+        auto: env_u32("CAPTURE_AUTO_ORBIT", 0) != 0,
         ..base
     }
 }
