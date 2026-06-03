@@ -117,7 +117,7 @@ pub fn fade_water_tint(
     let alpha = 0.28 * t;
 
     for handle in &tint {
-        if let Some(material) = materials.get_mut(&handle.0) {
+        if let Some(mut material) = materials.get_mut(&handle.0) {
             material.base_color.set_alpha(alpha);
         }
     }

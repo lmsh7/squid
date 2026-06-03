@@ -6,7 +6,7 @@ description = "A 3D boids simulation in Bevy: tuna schools hunting squid schools
 license = "MIT"
 
 [dependencies]
-bevy = "0.18"
+bevy = "0.19.0-rc.2"
 rand = "0.8"
 
 # Speed up dev builds while keeping dependencies optimized.

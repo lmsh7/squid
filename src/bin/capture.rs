@@ -13,7 +13,7 @@ use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages};
 use bevy::render::view::screenshot::{save_to_disk, Screenshot};
 use bevy::core_pipeline::tonemapping::Tonemapping;
-use bevy::render::view::Hdr;
+use bevy::camera::Hdr;
 use bevy::window::ExitCondition;
 use bevy::winit::WinitPlugin;
 
