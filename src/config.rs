@@ -134,9 +134,12 @@ impl Default for SimConfig {
                 current_time_scale: 0.35,
                 current_push: 1.2,
 
-                particle_count: 260,
-                particle_fall_speed: 0.7,
-                particle_size: 0.05,
+                // A dense drift of marine snow: the suspended motes are what sell
+                // the tank as a body of water rather than tinted air, so there are
+                // plenty of them, slightly larger, sinking slowly through the volume.
+                particle_count: 650,
+                particle_fall_speed: 0.6,
+                particle_size: 0.07,
             },
 
             flee_radius: 8.5,

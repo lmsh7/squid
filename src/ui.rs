@@ -6,6 +6,17 @@ use crate::camera::OrbitCamera;
 use crate::components::{Species, StatsText};
 use crate::config::{Score, SimConfig};
 
+/// Bias the wireframe so it always draws just in front of the geometry at the
+/// same depth. The tank edges sit exactly on the faces of the translucent water
+/// box, so at `depth_bias: 0` they z-fight with those faces and the volumetric
+/// fog — the lines flicker and read as a smeared shadow along the border. A
+/// small negative bias pulls the wireframe forward enough to win that tie
+/// cleanly without floating it over the fish.
+pub fn configure_gizmos(mut store: ResMut<GizmoConfigStore>) {
+    let (config, _) = store.config_mut::<DefaultGizmoConfigGroup>();
+    config.depth_bias = -0.001;
+}
+
 /// Draw the edges of the tank every frame using gizmos.
 pub fn draw_bounds(mut gizmos: Gizmos, cfg: Res<SimConfig>) {
     gizmos.cube(
