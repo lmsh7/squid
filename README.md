@@ -12,8 +12,10 @@ project and reimagined in three dimensions with a predator/prey twist.
 Two schools share a tank filled with **moving water**: a swirling current drags
 the schools around and stirs them into eddies, drifting "marine snow" particles
 sink through the volume, distance fog fades far-off fish into clear blue depth,
-and **sunlight scatters down** through the water from above — so the tank reads
-as a body of clear blue water, not empty space.
+and **sunlight scatters down** through the water in slanted shafts — so the tank
+reads as a body of clear blue water, not empty space. Below it all lies a sandy
+**seabed** with half-sunken rocks and kelp swaying in the current, catching the
+schools' soft shadows as they pass overhead.
 
 Two schools share that tank:
 
@@ -52,11 +54,17 @@ parts assembled from Bevy primitives in [`src/setup.rs`](src/setup.rs), with the
 orientation baked into every fin's mesh so the entity carrying it can pivot
 cleanly at the joint.
 
-- **🐟 Tuna** — a smooth fusiform body, a tall vertical **caudal fin**, a dorsal
-  fin, and two **pectoral fins**. The body and tail hang off a `Body` pivot near
-  the head, so motion travels down the flank to the tail.
+- **🐟 Tuna** — a smooth fusiform body with a pale countershaded belly, a tall
+  forked **caudal fin**, two dorsal fins, an anal fin, rows of the bluefin's
+  signature **yellow finlets**, and two **pectoral fins**. The body and tail
+  hang off a `Body` pivot near the head, so motion travels down the flank to
+  the tail.
 - **🦑 Squid** — a tapered, pointed **mantle**, two posterior **lateral fins**, a
   head, and a trailing sheaf of **arms/tentacles**.
+
+Both species have two-part eyes (a pale eyeball with a dark pupil), and every
+fish rolls its own **skin tone and body size** at spawn, so each school reads
+as a crowd of individuals rather than stamped copies.
 
 The parts a fish can flex are tagged with `FishPart` (the "skeleton"), and
 [`src/animation.rs`](src/animation.rs) drives them every frame:
@@ -77,7 +85,7 @@ in step.
 
 ## The water body
 
-The water is a lightweight, dependency-free effect built on what Bevy 0.18
+The water is a lightweight, dependency-free effect built on what Bevy
 already ships, so it also runs under the headless software renderer:
 
 - **Current** — an analytic velocity field (a slow bulk drift plus a few
@@ -91,11 +99,14 @@ already ships, so it also runs under the headless software renderer:
   right to its edges.
 - **Distance fog** — an exponential `DistanceFog` on the camera tints and fades
   distant fish into the water colour.
-- **Sunlight** — a `VolumetricLight` "sun" scatters through a `FogVolume` filling
-  the tank, so light glows softly down through the water and the schools are lit
-  from above. The cameras render in HDR with bloom so the lit water and fish
-  glow. (Bevy 0.18 only scatters *directional* lights volumetrically, so this is
-  a soft sun glow rather than hard, occluder-carved god-ray shafts.)
+- **Sunlight** — a `VolumetricLight` "sun", tilted slightly off vertical so every
+  fish has a lit flank and a shaded flank, scatters through a `FogVolume` filling
+  the tank: light glows softly down through the water in slanted shafts and the
+  schools cast soft shadows onto the seabed. The cameras render in HDR with
+  bloom so the lit water and fish glow.
+- **Seabed** — a sandy floor just below the tank, scattered with half-sunken
+  rocks and clusters of **kelp blades that sway in the current**, grounds the
+  scene and fades into the fog with distance.
 
 ## Running
 

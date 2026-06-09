@@ -64,10 +64,13 @@ fn pose_part(part: FishPart, rest: Transform, phase: f32, effort: f32) -> Transf
     let mut t = rest;
     match part {
         // Carangiform body wave: a small yaw that the tail (a child pivot) rides
-        // on, so thrust looks like it travels down the body to the tail.
+        // on, so thrust looks like it travels down the body to the tail, plus a
+        // slight counter-roll — a stiff-bodied fish rocks about its long axis as
+        // it beats, and without it the swim read as a flat metronome.
         FishPart::Body => {
             let yaw = 0.09 * effort * phase.sin();
-            t.rotation = rest.rotation * Quat::from_rotation_y(yaw);
+            let roll = 0.05 * effort * (phase - 0.4).sin();
+            t.rotation = rest.rotation * Quat::from_rotation_y(yaw) * Quat::from_rotation_z(roll);
         }
         // The tail sweeps a quarter-cycle behind the body wave, the way a real
         // fish's tail lags the bend running down its flank.

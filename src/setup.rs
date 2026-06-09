@@ -12,7 +12,7 @@ use bevy::camera::Hdr;
 use rand::Rng;
 
 use crate::components::{
-    FishPart, RestPose, Species, Squid, StatsText, SwimGait, Tuna, Velocity, WaterTint,
+    FishPart, Kelp, RestPose, Species, Squid, StatsText, SwimGait, Tuna, Velocity, WaterTint,
 };
 use crate::config::SimConfig;
 use crate::flocking::{random_point, random_velocity};
@@ -28,7 +28,9 @@ struct CreatureAssets {
     squid_fin: Handle<Mesh>,
     squid_head: Handle<Mesh>,
     squid_arm: Handle<Mesh>,
-    squid_mat: Handle<StandardMaterial>,
+    /// A few skin-tone variants; each squid picks one at spawn so the school
+    /// reads as individuals rather than clones.
+    squid_mats: Vec<Handle<StandardMaterial>>,
     // --- Tuna ---
     tuna_body: Handle<Mesh>,
     tuna_tail: Handle<Mesh>,
@@ -36,11 +38,17 @@ struct CreatureAssets {
     tuna_finlet: Handle<Mesh>,
     tuna_pectoral: Handle<Mesh>,
     tuna_belly: Handle<Mesh>,
-    tuna_mat: Handle<StandardMaterial>,
+    /// Back/fin colour variants, picked per fish like the squid skins.
+    tuna_mats: Vec<Handle<StandardMaterial>>,
     tuna_belly_mat: Handle<StandardMaterial>,
+    /// The bluefin's signature bright yellow: finlets, second dorsal, anal fin.
+    tuna_accent_mat: Handle<StandardMaterial>,
     // --- Shared ---
-    eye_mesh: Handle<Mesh>,
-    eye_mat: Handle<StandardMaterial>,
+    /// Two-part eye: a pale eyeball with a dark pupil set into it.
+    eye_ball: Handle<Mesh>,
+    eye_pupil: Handle<Mesh>,
+    eye_ball_mat: Handle<StandardMaterial>,
+    eye_pupil_mat: Handle<StandardMaterial>,
 }
 
 /// Bake a transform into a primitive's geometry. This lets a fin be modelled in
@@ -77,8 +85,10 @@ pub fn water_fog() -> DistanceFog {
             48.0,
             // Extinction: blue-green survives, red is scrubbed out with distance.
             Color::srgb(0.42, 0.62, 0.70),
-            // In-scattering: the water's own blue-teal glow added back over distance.
-            Color::srgb(0.06, 0.30, 0.46),
+            // In-scattering: the water's own blue-teal glow added back over
+            // distance, kept deep so far geometry sinks into the dark backdrop
+            // instead of milking the frame out.
+            Color::srgb(0.05, 0.26, 0.42),
         ),
         ..default()
     }
@@ -137,24 +147,21 @@ pub fn setup_scene(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // --- Lighting -------------------------------------------------------
-    // The "sun": a directional light straight overhead, shining vertically down
-    // into the tank so it lights the fish from above evenly rather than from one
-    // side. Shadows are off: with a single enclosing tank there is nothing to
-    // cast a meaningful shadow, and a shadowed sun only complicated the water.
+    // The "sun": a directional light shining down into the tank, tilted a little
+    // off vertical (~15°). Straight-down light left every fish lit only on its
+    // back with flat, shadowless flanks; the slight angle gives each body a lit
+    // side and a shaded side so the schools read as volumes, and slants the
+    // volumetric shafts so they sweep diagonally through the water.
     commands.spawn((
         DirectionalLight {
             // Bright, sun-like: lights the fish surfaces from above.
             illuminance: 20_000.0,
-            // TRIAL (bevy 0.19): shadows back on to feed volumetric scatter, to
-            // test whether the 0.19 fog-volume fix (#22574) removes the orbiting
-            // bright-edge / jumping-focus artifact.
+            // Shadows feed the volumetric scatter and drop soft contact shadows
+            // from the fish, rocks and kelp onto the seabed.
             shadow_maps_enabled: true,
             ..default()
         },
-        // Straight down (-Y). The `up` reference for `look_at` must be horizontal
-        // (`Vec3::Z`): with a vertical look direction, `Vec3::Y` would be parallel
-        // to the view and the rotation would be undefined.
-        Transform::from_xyz(0.0, 60.0, 0.0).looking_at(Vec3::ZERO, Vec3::Z),
+        Transform::from_xyz(14.0, 60.0, 9.0).looking_at(Vec3::ZERO, Vec3::Z),
         VolumetricLight,
     ));
     // A second, cooler fill light from below for an underwater feel.
@@ -177,11 +184,14 @@ pub fn setup_scene(
     commands.spawn((
         FogVolume {
             fog_color: Color::srgb(0.12, 0.38, 0.58),
-            density_factor: 0.028,
-            scattering: 0.5,
+            // Kept light: with the sunlit seabed bouncing light back up, the
+            // earlier denser/brighter settings washed the whole frame out to a
+            // pale cyan haze — the shafts should accent the water, not veil it.
+            density_factor: 0.012,
+            scattering: 0.45,
             absorption: 0.02,
             scattering_asymmetry: 0.3,
-            light_intensity: 10.0,
+            light_intensity: 3.5,
             light_tint: Color::srgb(0.8, 0.9, 1.0),
             ..default()
         },
@@ -271,19 +281,35 @@ pub fn setup_scene(
                 scale: Vec3::ONE,
             },
         )),
-        squid_mat: materials.add(StandardMaterial {
-            base_color: Color::srgb(0.78, 0.32, 0.62),
-            perceptual_roughness: 0.5,
-            metallic: 0.1,
-            ..default()
-        }),
+        // Squid skins: the same magenta-pink family, but a few distinct tones so
+        // the school reads as individuals. Low metallic, soft sheen — squid skin
+        // is matte and fleshy, not metallic.
+        squid_mats: [
+            Color::srgb(0.80, 0.34, 0.60),
+            Color::srgb(0.70, 0.28, 0.55),
+            Color::srgb(0.86, 0.44, 0.58),
+            Color::srgb(0.74, 0.36, 0.66),
+        ]
+        .into_iter()
+        .map(|base_color| {
+            materials.add(StandardMaterial {
+                base_color,
+                perceptual_roughness: 0.45,
+                metallic: 0.05,
+                ..default()
+            })
+        })
+        .collect(),
         // Tuna body: a sleek fusiform ellipsoid. A bluefin is laterally compressed
         // (taller than wide) and roughly 3× longer than deep, so the half-axes are
         // narrow in X, deeper in Y, and long in Z — a far more streamlined torpedo
         // than the earlier near-round body. Baked forward so the pivot sits near
         // the head and the flank undulates behind it.
+        // Higher-resolution UV sphere than the default: the strong lengthwise
+        // stretch makes the default tessellation's facets obvious along the
+        // flank, and the body is the biggest surface on screen.
         tuna_body: meshes.add(baked(
-            Sphere::new(1.0),
+            Sphere::new(1.0).mesh().uv(40, 22),
             Transform {
                 translation: Vec3::new(0.0, 0.0, 0.5),
                 rotation: Quat::IDENTITY,
@@ -346,20 +372,29 @@ pub fn setup_scene(
                 scale: Vec3::new(0.15, 1.0, 1.0),
             },
         )),
-        // Bluefin back: a dark steel blue with a metallic sheen, as in the
-        // reference. The belly is a separate pale material (see `tuna_belly_mat`)
-        // for the classic countershading.
-        tuna_mat: materials.add(StandardMaterial {
-            base_color: Color::srgb(0.13, 0.22, 0.40),
-            perceptual_roughness: 0.3,
-            metallic: 0.6,
-            ..default()
-        }),
+        // Bluefin backs: dark steel blue with a metallic sheen, in a few close
+        // variants so the pack isn't a wall of identical fish. The belly is a
+        // separate pale material (see `tuna_belly_mat`) for the countershading.
+        tuna_mats: [
+            Color::srgb(0.13, 0.22, 0.40),
+            Color::srgb(0.10, 0.19, 0.36),
+            Color::srgb(0.16, 0.26, 0.45),
+        ]
+        .into_iter()
+        .map(|base_color| {
+            materials.add(StandardMaterial {
+                base_color,
+                perceptual_roughness: 0.3,
+                metallic: 0.6,
+                ..default()
+            })
+        })
+        .collect(),
         // Belly: a slightly smaller fusiform shell hugging the lower body, in pale
         // silver — the bright underside of the bluefin's countershading. Sits just
         // below the body centre so only the lower flank reads as silver.
         tuna_belly: meshes.add(baked(
-            Sphere::new(1.0),
+            Sphere::new(1.0).mesh().uv(40, 22),
             Transform {
                 translation: Vec3::new(0.0, -0.12, 0.5),
                 rotation: Quat::IDENTITY,
@@ -372,15 +407,41 @@ pub fn setup_scene(
             metallic: 0.5,
             ..default()
         }),
-        eye_mesh: meshes.add(Sphere::new(0.05)),
-        eye_mat: materials.add(StandardMaterial {
+        // The bluefin's give-away splash of colour: bright yellow finlets and
+        // rear fins against the dark steel back.
+        tuna_accent_mat: materials.add(StandardMaterial {
+            base_color: Color::srgb(0.93, 0.76, 0.16),
+            perceptual_roughness: 0.45,
+            metallic: 0.2,
+            ..default()
+        }),
+        // Eyes: a pale eyeball with a dark pupil set into its front, instead of
+        // the old single black bead — at school distances the bright sclera ring
+        // is what makes the eye (and so the head end) readable.
+        eye_ball: meshes.add(Sphere::new(0.055)),
+        eye_pupil: meshes.add(Sphere::new(0.032)),
+        eye_ball_mat: materials.add(StandardMaterial {
+            base_color: Color::srgb(0.90, 0.92, 0.94),
+            perceptual_roughness: 0.2,
+            ..default()
+        }),
+        eye_pupil_mat: materials.add(StandardMaterial {
             base_color: Color::srgb(0.02, 0.02, 0.02),
+            perceptual_roughness: 0.15,
             ..default()
         }),
     };
 
-    // --- Schools --------------------------------------------------------
     let mut rng = rand::thread_rng();
+
+    // --- Seabed -----------------------------------------------------------
+    // Sand, rocks and swaying kelp under the tank: the schools used to float in
+    // a featureless void, so nothing anchored the scene or gave the eye a sense
+    // of scale and depth. A floor catches the sun's contact shadows and fades
+    // into the fog with distance, grounding the whole picture.
+    spawn_seabed(&mut commands, &cfg, &mut meshes, &mut materials, &mut rng);
+
+    // --- Schools --------------------------------------------------------
     for _ in 0..cfg.squid_count {
         spawn_squid(&mut commands, &assets, &cfg, &mut rng);
     }
@@ -406,6 +467,120 @@ pub fn setup_scene(
     ));
 }
 
+/// The ocean floor: a wide sandy disc just below the tank, scattered rocks half
+/// sunk into it, and clusters of kelp blades that sway in the current (see
+/// [`crate::water::sway_kelp`]). Everything sits below the fishes' swim volume
+/// so it dresses the scene without ever colliding with the schools, and the
+/// disc reaches well past the tank so the distance fog swallows its rim.
+fn spawn_seabed(
+    commands: &mut Commands,
+    cfg: &SimConfig,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    rng: &mut impl Rng,
+) {
+    // Sand surface a touch below the tank floor so fish hugging the bottom
+    // wall never clip into it.
+    let floor_y = -cfg.bounds.y - 0.6;
+
+    // Dim, desaturated sand: at this depth the seabed reads as a muted
+    // blue-grey ground, and a brighter tone bounced enough light to wash out
+    // the whole frame.
+    let sand_mat = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.42, 0.41, 0.33),
+        perceptual_roughness: 0.95,
+        ..default()
+    });
+    // A circle is plenty: viewed through fog its far rim never reads, and a
+    // high resolution keeps the silhouette smooth where it does.
+    commands.spawn((
+        Mesh3d(meshes.add(Circle::new(120.0).mesh().resolution(72).build())),
+        MeshMaterial3d(sand_mat),
+        // The circle is modelled in XY facing +Z; lay it flat facing up.
+        Transform::from_xyz(0.0, floor_y, 0.0)
+            .with_rotation(Quat::from_rotation_x(-FRAC_PI_2)),
+    ));
+
+    // Rocks: squashed spheres half sunk into the sand, darker and matte.
+    let rock_mesh = meshes.add(Sphere::new(1.0));
+    let rock_mat = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.33, 0.34, 0.32),
+        perceptual_roughness: 0.95,
+        ..default()
+    });
+    for _ in 0..14 {
+        let angle = rng.gen_range(0.0..TAU);
+        let dist = rng.gen_range(6.0..55.0_f32);
+        let r = rng.gen_range(0.7..2.6_f32);
+        let squash = rng.gen_range(0.45..0.7);
+        commands.spawn((
+            Mesh3d(rock_mesh.clone()),
+            MeshMaterial3d(rock_mat.clone()),
+            Transform {
+                translation: Vec3::new(
+                    angle.cos() * dist,
+                    // Sink each rock ~40% into the sand so it sits in the
+                    // seabed rather than on it.
+                    floor_y + r * squash * 0.6,
+                    angle.sin() * dist,
+                ),
+                rotation: Quat::from_rotation_y(rng.gen_range(0.0..TAU)),
+                scale: Vec3::new(r, r * squash, r * rng.gen_range(0.7..1.1)),
+            },
+        ));
+    }
+
+    // Kelp: clusters of tall, slender blades pivoting at the sand so the sway
+    // system can lean each one in the current. The blade is a unit-height cone
+    // baked with its base at the origin; per-blade height comes from scale.
+    let kelp_mesh = meshes.add(baked(
+        Cone {
+            radius: 0.22,
+            height: 1.0,
+        },
+        Transform {
+            translation: Vec3::new(0.0, 0.5, 0.0),
+            rotation: Quat::IDENTITY,
+            // Thin front-to-back so it reads as a ribbon-like blade.
+            scale: Vec3::new(1.0, 1.0, 0.25),
+        },
+    ));
+    let kelp_mat = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.15, 0.42, 0.22),
+        perceptual_roughness: 0.7,
+        ..default()
+    });
+    for _ in 0..9 {
+        let angle = rng.gen_range(0.0..TAU);
+        let dist = rng.gen_range(14.0..50.0_f32);
+        let cx = angle.cos() * dist;
+        let cz = angle.sin() * dist;
+        for _ in 0..rng.gen_range(2..5) {
+            let height = rng.gen_range(4.0..9.0_f32);
+            let rest = Quat::from_rotation_y(rng.gen_range(0.0..TAU))
+                * Quat::from_rotation_x(rng.gen_range(-0.12..0.12));
+            commands.spawn((
+                Mesh3d(kelp_mesh.clone()),
+                MeshMaterial3d(kelp_mat.clone()),
+                Transform {
+                    translation: Vec3::new(
+                        cx + rng.gen_range(-1.6..1.6),
+                        floor_y,
+                        cz + rng.gen_range(-1.6..1.6),
+                    ),
+                    rotation: rest,
+                    scale: Vec3::new(rng.gen_range(0.7..1.2), height, 1.0),
+                },
+                Kelp {
+                    phase: rng.gen_range(0.0..TAU),
+                    amp: rng.gen_range(0.05..0.11),
+                    rest,
+                },
+            ));
+        }
+    }
+}
+
 fn spawn_squid(
     commands: &mut Commands,
     assets: &CreatureAssets,
@@ -414,6 +589,10 @@ fn spawn_squid(
 ) {
     let pos = random_point(cfg, rng);
     let vel = random_velocity(cfg.squid.min_speed, cfg.squid.max_speed, rng);
+    // Per-fish skin tone and body size, so the school is a crowd of
+    // individuals instead of stamped copies.
+    let mat = assets.squid_mats[rng.gen_range(0..assets.squid_mats.len())].clone();
+    let size = rng.gen_range(0.85..1.1);
 
     commands
         .spawn((
@@ -421,7 +600,7 @@ fn spawn_squid(
             Squid,
             Velocity(vel),
             random_gait(rng),
-            Transform::from_translation(pos),
+            Transform::from_translation(pos).with_scale(Vec3::splat(size)),
             Visibility::default(),
         ))
         .with_children(|p| {
@@ -429,7 +608,7 @@ fn spawn_squid(
             let mantle = Transform::IDENTITY;
             p.spawn((
                 Mesh3d(assets.squid_mantle.clone()),
-                MeshMaterial3d(assets.squid_mat.clone()),
+                MeshMaterial3d(mat.clone()),
                 mantle,
                 FishPart::Mantle,
                 RestPose(mantle),
@@ -449,7 +628,7 @@ fn spawn_squid(
                 };
                 p.spawn((
                     Mesh3d(assets.squid_fin.clone()),
-                    MeshMaterial3d(assets.squid_mat.clone()),
+                    MeshMaterial3d(mat.clone()),
                     rest,
                     FishPart::SquidFin { side },
                     RestPose(rest),
@@ -459,7 +638,7 @@ fn spawn_squid(
             // overlapping it slightly for a seamless bullet nose.
             p.spawn((
                 Mesh3d(assets.squid_head.clone()),
-                MeshMaterial3d(assets.squid_mat.clone()),
+                MeshMaterial3d(mat.clone()),
                 Transform::from_xyz(0.0, 0.0, -0.7),
             ));
             // Arm/tentacle crown: eight shorter arms splayed in a ring, plus two
@@ -485,7 +664,7 @@ fn spawn_squid(
                     for (yaw, pitch) in crown {
                         a.spawn((
                             Mesh3d(assets.squid_arm.clone()),
-                            MeshMaterial3d(assets.squid_mat.clone()),
+                            MeshMaterial3d(mat.clone()),
                             Transform {
                                 rotation: Quat::from_rotation_y(yaw)
                                     * Quat::from_rotation_x(pitch),
@@ -499,7 +678,7 @@ fn spawn_squid(
                     for sx in [-0.07_f32, 0.07] {
                         a.spawn((
                             Mesh3d(assets.squid_arm.clone()),
-                            MeshMaterial3d(assets.squid_mat.clone()),
+                            MeshMaterial3d(mat.clone()),
                             Transform {
                                 rotation: Quat::from_rotation_y(sx),
                                 scale: Vec3::new(0.7, 0.7, 0.95),
@@ -508,13 +687,22 @@ fn spawn_squid(
                         ));
                     }
                 });
-            // Eyes on the head (-Z front), set on the sides of the head sphere.
+            // Eyes on the head (-Z front), set on the sides of the head sphere:
+            // a pale eyeball with a dark pupil sunk into its outer-front face,
+            // so the head end reads clearly even at school distance.
             for sx in [-1.0_f32, 1.0] {
                 p.spawn((
-                    Mesh3d(assets.eye_mesh.clone()),
-                    MeshMaterial3d(assets.eye_mat.clone()),
+                    Mesh3d(assets.eye_ball.clone()),
+                    MeshMaterial3d(assets.eye_ball_mat.clone()),
                     Transform::from_xyz(sx * 0.15, 0.06, -0.78),
-                ));
+                ))
+                .with_children(|e| {
+                    e.spawn((
+                        Mesh3d(assets.eye_pupil.clone()),
+                        MeshMaterial3d(assets.eye_pupil_mat.clone()),
+                        Transform::from_xyz(sx * 0.022, 0.0, -0.028),
+                    ));
+                });
             }
         });
 }
@@ -527,6 +715,9 @@ fn spawn_tuna(
 ) {
     let pos = random_point(cfg, rng);
     let vel = random_velocity(cfg.tuna.min_speed, cfg.tuna.max_speed, rng);
+    // Per-fish back tint and body size (see `spawn_squid`).
+    let mat = assets.tuna_mats[rng.gen_range(0..assets.tuna_mats.len())].clone();
+    let size = rng.gen_range(0.9..1.15);
 
     commands
         .spawn((
@@ -534,7 +725,7 @@ fn spawn_tuna(
             Tuna,
             Velocity(vel),
             random_gait(rng),
-            Transform::from_translation(pos),
+            Transform::from_translation(pos).with_scale(Vec3::splat(size)),
             Visibility::default(),
         ))
         .with_children(|p| {
@@ -551,7 +742,7 @@ fn spawn_tuna(
                 // The fusiform body mesh, baked to sit centred on the fish.
                 b.spawn((
                     Mesh3d(assets.tuna_body.clone()),
-                    MeshMaterial3d(assets.tuna_mat.clone()),
+                    MeshMaterial3d(mat.clone()),
                     Transform::IDENTITY,
                 ));
                 // Silver belly shell for countershading, riding the same wave.
@@ -575,7 +766,7 @@ fn spawn_tuna(
                         for dir in [1.0_f32, -1.0] {
                             t.spawn((
                                 Mesh3d(assets.tuna_tail.clone()),
-                                MeshMaterial3d(assets.tuna_mat.clone()),
+                                MeshMaterial3d(mat.clone()),
                                 Transform::from_rotation(Quat::from_rotation_x(
                                     dir * 0.28,
                                 )),
@@ -585,28 +776,42 @@ fn spawn_tuna(
                 // First (front) dorsal fin, taller, over the mid-back.
                 b.spawn((
                     Mesh3d(assets.tuna_dorsal.clone()),
-                    MeshMaterial3d(assets.tuna_mat.clone()),
+                    MeshMaterial3d(mat.clone()),
                     Transform::from_xyz(0.0, 0.5, 0.35),
                 ));
-                // Second (rear) dorsal fin, a touch smaller and set further back.
+                // Second (rear) dorsal fin, a touch smaller and set further
+                // back — bright yellow on a bluefin, like the finlets below.
                 b.spawn((
                     Mesh3d(assets.tuna_dorsal.clone()),
-                    MeshMaterial3d(assets.tuna_mat.clone()),
+                    MeshMaterial3d(assets.tuna_accent_mat.clone()),
                     Transform {
                         translation: Vec3::new(0.0, 0.46, 0.95),
                         scale: Vec3::splat(0.7),
                         ..default()
                     },
                 ));
+                // Anal fin: the second dorsal's mirror under the body, also
+                // yellow. Real bluefin carry this near-symmetric pair of rear
+                // fins; without it the underside read as bare.
+                b.spawn((
+                    Mesh3d(assets.tuna_dorsal.clone()),
+                    MeshMaterial3d(assets.tuna_accent_mat.clone()),
+                    Transform {
+                        translation: Vec3::new(0.0, -0.42, 1.0),
+                        rotation: Quat::from_rotation_z(PI),
+                        scale: Vec3::splat(0.6),
+                    },
+                ));
                 // Finlet rows running from behind the second dorsal toward the
-                // tail, on both the back (+Y) and the belly (-Y).
+                // tail, on both the back (+Y) and the belly (-Y) — the bluefin's
+                // signature bright yellow.
                 for i in 0..4 {
                     let z = 1.15 + i as f32 * 0.16;
                     let taper = 1.0 - i as f32 * 0.12;
                     // Dorsal (top) finlet.
                     b.spawn((
                         Mesh3d(assets.tuna_finlet.clone()),
-                        MeshMaterial3d(assets.tuna_mat.clone()),
+                        MeshMaterial3d(assets.tuna_accent_mat.clone()),
                         Transform {
                             translation: Vec3::new(0.0, 0.34, z),
                             scale: Vec3::splat(taper),
@@ -616,7 +821,7 @@ fn spawn_tuna(
                     // Ventral (bottom) finlet, flipped under the body.
                     b.spawn((
                         Mesh3d(assets.tuna_finlet.clone()),
-                        MeshMaterial3d(assets.tuna_mat.clone()),
+                        MeshMaterial3d(assets.tuna_accent_mat.clone()),
                         Transform {
                             translation: Vec3::new(0.0, -0.34, z),
                             rotation: Quat::from_rotation_z(PI),
@@ -639,19 +844,27 @@ fn spawn_tuna(
                 };
                 p.spawn((
                     Mesh3d(assets.tuna_pectoral.clone()),
-                    MeshMaterial3d(assets.tuna_mat.clone()),
+                    MeshMaterial3d(mat.clone()),
                     rest,
                     FishPart::PectoralFin { side },
                     RestPose(rest),
                 ));
             }
-            // Eyes near the front (-Z).
+            // Eyes near the front (-Z): pale eyeball, dark pupil set into its
+            // outer-front face (see the squid's eyes).
             for sx in [-1.0_f32, 1.0] {
                 p.spawn((
-                    Mesh3d(assets.eye_mesh.clone()),
-                    MeshMaterial3d(assets.eye_mat.clone()),
+                    Mesh3d(assets.eye_ball.clone()),
+                    MeshMaterial3d(assets.eye_ball_mat.clone()),
                     Transform::from_xyz(sx * 0.2, 0.12, -0.78),
-                ));
+                ))
+                .with_children(|e| {
+                    e.spawn((
+                        Mesh3d(assets.eye_pupil.clone()),
+                        MeshMaterial3d(assets.eye_pupil_mat.clone()),
+                        Transform::from_xyz(sx * 0.022, 0.0, -0.028),
+                    ));
+                });
             }
         });
 }
