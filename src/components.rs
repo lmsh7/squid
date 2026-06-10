@@ -62,6 +62,15 @@ pub enum FishPart {
 #[derive(Component, Clone, Copy)]
 pub struct RestPose(pub Transform);
 
+/// A kelp blade anchored to the seabed. Stores its rest rotation plus a phase
+/// and amplitude so each blade sways in the current on its own rhythm.
+#[derive(Component)]
+pub struct Kelp {
+    pub phase: f32,
+    pub amp: f32,
+    pub rest: Quat,
+}
+
 /// Marker for the on-screen statistics text.
 #[derive(Component)]
 pub struct StatsText;

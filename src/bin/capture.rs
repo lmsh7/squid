@@ -21,9 +21,9 @@ use squid::animation::animate_fish;
 use squid::camera::{camera_apply, camera_input, OrbitCamera};
 use squid::config::{Score, SimConfig};
 use squid::flocking::{flocking_system, hunting_system, movement_system};
-use squid::setup::{beam_bloom, setup_scene, water_fog};
+use squid::setup::{beam_bloom, setup_scene, sun_rays, water_fog};
 use squid::ui::{draw_bounds, update_stats};
-use squid::water::{drift_particles, spawn_water_particles};
+use squid::water::{drift_particles, spawn_water_particles, sway_kelp};
 
 const WIDTH: u32 = 960;
 const HEIGHT: u32 = 540;
@@ -63,7 +63,7 @@ fn main() {
         .add_plugins(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(
             1.0 / 30.0,
         )))
-        .insert_resource(ClearColor(Color::srgb(0.06, 0.28, 0.44)))
+        .insert_resource(ClearColor(Color::srgb(0.045, 0.22, 0.36)))
         .insert_resource(GlobalAmbientLight {
             color: Color::srgb(0.5, 0.7, 1.0),
             brightness: 130.0,
@@ -89,6 +89,7 @@ fn main() {
                 movement_system,
                 animate_fish,
                 drift_particles,
+                sway_kelp,
                 hunting_system,
                 camera_input,
                 camera_apply,
@@ -162,6 +163,9 @@ fn setup_capture_camera(mut commands: Commands, mut images: ResMut<Assets<Image>
         beam_bloom(),
         Transform::from_xyz(0.0, 25.0, 72.0).looking_at(Vec3::ZERO, Vec3::Y),
         water_fog(),
+        // Volumetric light shafts, same as the windowed camera, so the preview
+        // shows the slanted sun beams too.
+        sun_rays(),
     ));
 
     commands.insert_resource(RenderImage(handle));

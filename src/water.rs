@@ -6,6 +6,7 @@
 use bevy::prelude::*;
 use rand::Rng;
 
+use crate::components::Kelp;
 use crate::config::{SimConfig, WaterParams};
 use crate::flocking::random_point;
 
@@ -55,6 +56,18 @@ pub fn spawn_water_particles(
             MeshMaterial3d(material.clone()),
             Transform::from_translation(random_point(&cfg, &mut rng)),
         ));
+    }
+}
+
+/// Lean each kelp blade about its base in a slow figure-of-eight, so the
+/// seabed visibly moves with the same water that drags the schools around.
+/// Two incommensurate frequencies keep the sway from looking metronomic.
+pub fn sway_kelp(time: Res<Time>, mut kelp: Query<(&Kelp, &mut Transform)>) {
+    let t = time.elapsed_secs();
+    for (k, mut tf) in kelp.iter_mut() {
+        let lean_x = k.amp * (t * 0.45 + k.phase).sin();
+        let lean_z = 0.7 * k.amp * (t * 0.31 + k.phase * 1.7).cos();
+        tf.rotation = k.rest * Quat::from_rotation_x(lean_x) * Quat::from_rotation_z(lean_z);
     }
 }
 

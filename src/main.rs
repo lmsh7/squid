@@ -12,7 +12,7 @@ use squid::config::{Score, SimConfig};
 use squid::flocking::{flocking_system, hunting_system, movement_system};
 use squid::setup::{setup_scene, spawn_window_camera};
 use squid::ui::{configure_gizmos, draw_bounds, update_stats};
-use squid::water::{drift_particles, spawn_water_particles};
+use squid::water::{drift_particles, spawn_water_particles, sway_kelp};
 
 fn main() {
     App::new()
@@ -23,7 +23,7 @@ fn main() {
             }),
             ..default()
         }))
-        .insert_resource(ClearColor(Color::srgb(0.06, 0.28, 0.44)))
+        .insert_resource(ClearColor(Color::srgb(0.045, 0.22, 0.36)))
         .insert_resource(GlobalAmbientLight {
             color: Color::srgb(0.5, 0.7, 1.0),
             brightness: 130.0,
@@ -48,6 +48,7 @@ fn main() {
                 movement_system,
                 animate_fish,
                 drift_particles,
+                sway_kelp,
                 hunting_system,
                 camera_input,
                 camera_apply,
